@@ -569,7 +569,7 @@ esac
 EOF
     chmod +x "$BIN_YQ"
     printf '{}\n' >"$CLASH_CONFIG_RUNTIME"
-    clashstatus() { return 1; }
+    _clash_api_health_check() { return 1; }
     _is_port_used() { printf '%s\n' "$1" >>"$runtime_config_tmp/detect-mixed-calls"; return 1; }
 
     _detect_proxy_port || fail "_detect_proxy_port should accept a free mixed-port"

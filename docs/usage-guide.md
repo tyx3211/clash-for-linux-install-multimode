@@ -115,7 +115,7 @@ sudo bash install.sh --init systemd
 
 运行时启动、停止和重启 systemd 服务会走 `sudo -n systemctl`。这意味着执行命令的用户需要是 root，或者已经拥有免密 sudo 权限；脚本不会停下来等待输入 sudo 密码。
 
-`clashstatus` 在 systemd 路线下会展示 `systemctl --no-pager --full status <内核名>`，便于直接看到 systemd 视角的 active / failed / inactive 状态；`tmux` / `nohup` 路线仍以托管进程和本机 API 健康检查为主。
+`clashstatus` 在 systemd 路线下会展示 `systemctl --no-pager --full status <内核名>`，便于直接看到 systemd 视角的 active / failed / inactive 状态；`tmux` / `nohup` 路线仍以托管进程和本机 API 健康检查为主。启动、重启、面板地址和内核升级这些内部流程会单独检查 `/version` API，不把 systemd 的 active 状态当作 API 可用。
 
 注册完成后，运行时切到 systemd：
 

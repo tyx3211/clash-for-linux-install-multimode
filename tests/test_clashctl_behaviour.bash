@@ -102,7 +102,7 @@ ui_loopback_tmp=$(make_test_tmpdir "clash-ui-loopback")
         EXT_IP=127.0.0.1
         EXT_PORT=9090
     }
-    clashstatus() { return 0; }
+    _clash_api_health_check() { return 0; }
     curl() { return 0; }
     _okcat() {
         [ "$#" -gt 1 ] && shift
@@ -157,7 +157,7 @@ ui_ext_fail_tmp=$(make_test_tmpdir "clash-ui-ext-fail")
     . "$CLASHCTL_SH"
 
     _detect_ext_addr() { return 1; }
-    clashstatus() { return 0; }
+    _clash_api_health_check() { return 0; }
     clashon() { printf 'start\n' >>"$ui_ext_fail_tmp/calls"; return 0; }
     clashui >"$ui_ext_fail_tmp/out" 2>"$ui_ext_fail_tmp/err"
     status=$?
@@ -172,6 +172,29 @@ ui_ext_fail_tmp=$(make_test_tmpdir "clash-ui-ext-fail")
 assert_file_contains "$CONFIG_SH" '_detect_ext_addr \|\| return 1' \
     "config commands should propagate external-controller detection failures"
 
+ui_api_health_tmp=$(make_test_tmpdir "clash-ui-api-health")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    _detect_ext_addr() {
+        EXT_IP=127.0.0.1
+        EXT_PORT=9090
+    }
+    clashstatus() { return 0; }
+    _clash_api_health_check() { printf 'api-health\n' >>"$ui_api_health_tmp/calls"; return 1; }
+    clashon() { printf 'start\n' >>"$ui_api_health_tmp/calls"; return 1; }
+
+    clashui >"$ui_api_health_tmp/out" 2>"$ui_api_health_tmp/err"
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "clashui should fail when the API health check fails and startup cannot recover"
+    grep -qx 'api-health' "$ui_api_health_tmp/calls" ||
+        fail "clashui should use the internal API health check instead of public clashstatus"
+    [ ! -s "$ui_api_health_tmp/out" ] ||
+        fail "clashui should not print a stale URL when API health is unavailable"
+)
+
 upgrade_setu_tmp=$(make_test_tmpdir "clash-upgrade-setu")
 (
     set -eu
@@ -181,7 +204,7 @@ upgrade_setu_tmp=$(make_test_tmpdir "clash-upgrade-setu")
         EXT_IP=127.0.0.1
         EXT_PORT=9090
     }
-    clashstatus() { return 0; }
+    _clash_api_health_check() { return 0; }
     _get_secret() { :; }
     _okcat() { :; }
     curl() {
@@ -189,6 +212,31 @@ upgrade_setu_tmp=$(make_test_tmpdir "clash-upgrade-setu")
     }
 
     clashupgrade >"$upgrade_setu_tmp/out"
+)
+
+upgrade_api_health_tmp=$(make_test_tmpdir "clash-upgrade-api-health")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    clashstatus() { printf 'public-status\n' >>"$upgrade_api_health_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health\n' >>"$upgrade_api_health_tmp/calls"; return 1; }
+    clashon() { printf 'start\n' >>"$upgrade_api_health_tmp/calls"; return 1; }
+    _detect_ext_addr() { printf 'detect-ext\n' >>"$upgrade_api_health_tmp/calls"; return 0; }
+    curl() { printf 'curl %s\n' "$*" >>"$upgrade_api_health_tmp/calls"; return 0; }
+
+    clashupgrade >"$upgrade_api_health_tmp/out" 2>"$upgrade_api_health_tmp/err"
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "clashupgrade should fail when API health is unavailable and startup cannot recover"
+    grep -qx 'api-health' "$upgrade_api_health_tmp/calls" ||
+        fail "clashupgrade should use the internal API health check"
+    ! grep -q '^public-status$' "$upgrade_api_health_tmp/calls" ||
+        fail "clashupgrade should not trust public clashstatus as API health"
+    ! grep -q '^detect-ext$' "$upgrade_api_health_tmp/calls" ||
+        fail "clashupgrade should not continue to upgrade request after failed API health"
+    ! grep -q '^curl ' "$upgrade_api_health_tmp/calls" ||
+        fail "clashupgrade should not request /upgrade when API health is unavailable"
 )
 
 set_u_tmp=$(make_test_tmpdir "clash-set-u-entrypoints")

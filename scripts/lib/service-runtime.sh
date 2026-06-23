@@ -461,6 +461,59 @@ _clash_service_is_active() {
     _get_active_mode >/dev/null
 }
 
+_clash_api_health_check() {
+    local mode= active_status api secret
+    local auth_args=()
+
+    case "${1:-}" in
+    --mode=*)
+        mode=${1#--mode=}
+        shift
+        _validate_service_mode "$mode" || return 1
+        ;;
+    --mode)
+        shift
+        mode=${1:-}
+        _validate_service_mode "$mode" || return 1
+        shift
+        ;;
+    "")
+        ;;
+    *)
+        _failcat "未知参数：$1"
+        return 1
+        ;;
+    esac
+    [ "$#" -eq 0 ] || {
+        _failcat "未知参数：$1"
+        return 1
+    }
+
+    if [ -z "$mode" ]; then
+        mode=$(_get_active_mode 2>/dev/null)
+        active_status=$?
+        [ "$active_status" -eq 2 ] && {
+            _failcat "检测到多个托管模式同时运行，请执行 clashstatus --all"
+            return 1
+        }
+    fi
+    [ -n "$mode" ] && _clash_service_is_active "$mode" >/dev/null 2>&1 || {
+        _failcat "内核未运行"
+        return 1
+    }
+
+    _detect_ext_addr || return 1
+    api=$(_ext_api_url /version)
+    secret="$(_get_secret)"
+    [ -n "$secret" ] && auth_args=(-H "Authorization: Bearer $secret")
+    curl --silent --fail --noproxy "*" "${auth_args[@]}" "$api" >/dev/null && {
+        _okcat "内核运行中（mode=$mode）"
+        return 0
+    }
+    _failcat "内核运行中但 API 不可达：$api"
+    return 1
+}
+
 _clash_service_start() {
     local mode=$1 pid=
     _validate_service_mode "$mode" || return 1
@@ -545,7 +598,7 @@ _detect_proxy_port() {
     [ -n "$mixed_port" ] && port_list+=("mixed-port|$mixed_port")
     [ -n "$http_port" ] && port_list+=("port|$http_port")
     [ -n "$socks_port" ] && port_list+=("socks-port|$socks_port")
-    clashstatus >&/dev/null && isActive=true
+    _clash_api_health_check >&/dev/null && isActive=true
     for entry in "${port_list[@]}"; do
         local yaml_key="${entry%|*}"
         local var_val="${entry#*|}"
@@ -580,7 +633,7 @@ EOF
     active_status=$?
     if [ "$active_status" -eq 0 ]; then
         [ "$active" = "$mode" ] && {
-            clashstatus --mode "$active" >&/dev/null && {
+            _clash_api_health_check --mode "$active" >&/dev/null && {
                 _okcat "内核已运行（mode=$active）；当前终端如需走代理，请执行 clashproxy on"
                 return 0
             }
@@ -606,7 +659,7 @@ EOF
 
     local deadline=$((SECONDS + 5))
     while [ "$SECONDS" -le "$deadline" ]; do
-        clashstatus >&/dev/null && {
+        _clash_api_health_check --mode "$mode" >&/dev/null && {
             _okcat "内核已启动（mode=$mode）；当前终端如需走代理，请执行 clashproxy on"
             return 0
         }
@@ -806,22 +859,7 @@ EOF
         _clash_adapter_systemd_status
         return $?
     fi
-    [ -n "$mode" ] && _clash_service_is_active "$mode" >/dev/null 2>&1 || {
-        _failcat "内核未运行"
-        return 1
-    }
-    _detect_ext_addr || return 1
-    local api
-    api=$(_ext_api_url /version)
-    local secret="$(_get_secret)"
-    local auth_args=()
-    [ -n "$secret" ] && auth_args=(-H "Authorization: Bearer $secret")
-    curl --silent --fail --noproxy "*" "${auth_args[@]}" "$api" >/dev/null && {
-        _okcat "内核运行中（mode=$mode）"
-        return 0
-    }
-    _failcat "内核运行中但 API 不可达：$api"
-    return 1
+    _clash_api_health_check --mode "$mode"
 }
 
 function clashlog() {

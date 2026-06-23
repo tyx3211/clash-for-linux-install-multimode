@@ -316,7 +316,7 @@ $ clashproxy on -g
 - `clashon` / `clashoff` 负责启动或关闭代理内核；`clashrestart --mode <mode>` 用于显式切换托管模式。
 - `clashon` 和 `clashrestart` 不写入当前终端代理变量；需要当前终端走代理时，显式执行 `clashproxy on`。
 - `clashoff` 只关闭内核，不改当前终端代理变量；需要关闭当前终端代理时，显式执行 `clashproxy off`。如果曾经用 `clashproxy on -g` 打开新终端自动代理，还需要显式执行 `clashproxy off -g`。
-- `clashstatus --all` 可以查看 `tmux`、`nohup`、`systemd` 三种 adapter 的进程探测结果；默认 `clashstatus` 会进一步检查 API 是否可达。
+- `clashstatus --all` 可以查看 `tmux`、`nohup`、`systemd` 三种 adapter 的进程探测结果；默认 `clashstatus` 在 `tmux` / `nohup` 下检查本机 API，在 `systemd` 下展示 `systemctl status`。
 - `clashproxy on` / `clashproxy off` 只负责写入或清理当前 shell 的代理变量，不改 sidecar 全局状态。
 - `clashproxy on -g` / `clashproxy off -g` 会在处理当前 shell 的同时，更新 sidecar 中的全局自动代理开关。
 - `clashproxy status` 会输出当前 shell 的实际代理变量，并在它们和当前 `runtime.yaml` 不一致时提示重新执行 `clashproxy off && clashproxy on`；只有 `no_proxy` / `NO_PROXY` 不算代理开启。

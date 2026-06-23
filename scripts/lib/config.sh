@@ -66,7 +66,7 @@ _clashui_print_box() {
 
 function clashui() {
     _detect_ext_addr || return 1
-    clashstatus >&/dev/null || clashon >/dev/null || return 1
+    _clash_api_health_check >&/dev/null || clashon >/dev/null || return 1
     _detect_ext_addr || return 1
     local local_ip=$EXT_IP
     local local_address
@@ -269,7 +269,7 @@ _merge_config_restart() {
 
     local deadline=$((SECONDS + 5))
     while [ "$SECONDS" -le "$deadline" ]; do
-        clashstatus >&/dev/null && {
+        _clash_api_health_check --mode "$mode" >&/dev/null && {
             /usr/bin/rm -f "$runtime_restart_backup"
             return 0
         }
@@ -405,7 +405,7 @@ EOF
         esac
     done
 
-    clashstatus >&/dev/null || clashon >/dev/null || return 1
+    _clash_api_health_check >&/dev/null || clashon >/dev/null || return 1
     _detect_ext_addr || return 1
     _okcat '⏳' "请求内核升级..."
     local follow_pid=

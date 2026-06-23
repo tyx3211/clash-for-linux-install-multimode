@@ -21,6 +21,9 @@ assert_file_contains "$SERVICE_RUNTIME_SH" '_clash_adapter_systemd_start\(\)' \
 assert_file_contains "$SERVICE_RUNTIME_SH" '_with_service_lock\(\)' \
     "runtime start/stop/restart operations should share a service lock"
 
+assert_file_contains "$SERVICE_RUNTIME_SH" '_clash_api_health_check\(\)' \
+    "runtime internals should use a dedicated API health check instead of public clashstatus"
+
 assert_file_not_contains "$SERVICE_RUNTIME_SH" '(^|[[:space:]])local([^#]*)[[:space:]]status(=|[[:space:]]|$)' \
     "runtime helpers should not declare zsh readonly status as a local variable"
 
@@ -183,7 +186,7 @@ mode_tmp=$(make_test_tmpdir "clash-runtime-mode")
     _unset_system_proxy() { :; }
     _okcat() { :; }
     _failcat() { printf '%s\n' "$*" >>"$mode_tmp/fail.log"; }
-    clashstatus() {
+    _clash_api_health_check() {
         [ "${tmux_active:-false}" = true ] || [ "${nohup_active:-false}" = true ]
     }
     sleep() { :; }
@@ -334,7 +337,7 @@ restart_ext_tmp=$(make_test_tmpdir "clash-restart-ext")
     _detect_proxy_port() { printf 'detect-proxy\n' >>"$restart_ext_tmp/calls"; }
     _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$restart_ext_tmp/calls"; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$restart_ext_tmp/calls"; }
-    clashstatus() { printf 'status\n' >>"$restart_ext_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health\n' >>"$restart_ext_tmp/calls"; return 0; }
     sleep() { :; }
 
     _merge_config_restart || fail "_merge_config_restart should succeed with stubbed service operations"
@@ -361,7 +364,7 @@ restart_proxy_env_tmp=$(make_test_tmpdir "clash-restart-proxy-env")
     _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$restart_proxy_env_tmp/calls"; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$restart_proxy_env_tmp/calls"; }
     _set_system_proxy() { printf 'set-proxy\n' >>"$restart_proxy_env_tmp/calls"; }
-    clashstatus() { printf 'status\n' >>"$restart_proxy_env_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health\n' >>"$restart_proxy_env_tmp/calls"; return 0; }
     sleep() { :; }
 
     _merge_config_restart || fail "_merge_config_restart should succeed with an existing proxy environment"
@@ -467,7 +470,7 @@ restart_health_tmp=$(make_test_tmpdir "clash-restart-health")
     _detect_proxy_port() { printf 'detect-proxy\n' >>"$restart_health_tmp/calls"; }
     _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$restart_health_tmp/calls"; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$restart_health_tmp/calls"; }
-    clashstatus() { printf 'status\n' >>"$restart_health_tmp/calls"; return 1; }
+    _clash_api_health_check() { printf 'api-health %s\n' "$*" >>"$restart_health_tmp/calls"; return 1; }
     _failcat() { printf '%s\n' "$*" >>"$restart_health_tmp/fail.log"; }
     sleep() { SECONDS=$((SECONDS + 10)); }
 
@@ -493,7 +496,7 @@ restart_secret_tmp=$(make_test_tmpdir "clash-restart-secret")
     _detect_proxy_port() { printf 'detect-proxy\n' >>"$restart_secret_tmp/calls"; }
     _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$restart_secret_tmp/calls"; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$restart_secret_tmp/calls"; }
-    clashstatus() { printf 'status\n' >>"$restart_secret_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health %s\n' "$*" >>"$restart_secret_tmp/calls"; return 0; }
     sleep() { :; }
 
     _merge_config_restart || fail "_merge_config_restart should support secret changes while the old kernel is still active"
@@ -516,7 +519,8 @@ same_mode_health_tmp=$(make_test_tmpdir "clash-same-mode-health")
     _detect_proxy_port() { printf 'detect-proxy\n' >>"$same_mode_health_tmp/calls"; }
     _ensure_ext_addr_available() { printf 'ensure-ext\n' >>"$same_mode_health_tmp/calls"; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$same_mode_health_tmp/calls"; }
-    clashstatus() { printf 'status %s\n' "$*" >>"$same_mode_health_tmp/calls"; return 1; }
+    clashstatus() { printf 'public-status %s\n' "$*" >>"$same_mode_health_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health %s\n' "$*" >>"$same_mode_health_tmp/calls"; return 1; }
     _okcat() { printf '%s\n' "$*" >>"$same_mode_health_tmp/ok.log"; }
     _failcat() { printf '%s\n' "$*" >>"$same_mode_health_tmp/fail.log"; }
 
@@ -524,12 +528,42 @@ same_mode_health_tmp=$(make_test_tmpdir "clash-same-mode-health")
     status=$?
     [ "$status" -ne 0 ] ||
         fail "clashon should not claim success when the active same-mode process is unhealthy"
-    grep -qx 'status --mode tmux' "$same_mode_health_tmp/calls" ||
-        fail "clashon same-mode path should verify API health"
+    grep -qx 'api-health --mode tmux' "$same_mode_health_tmp/calls" ||
+        fail "clashon same-mode path should verify API health instead of public clashstatus"
+    ! grep -q '^public-status' "$same_mode_health_tmp/calls" ||
+        fail "clashon same-mode path should not use public clashstatus as a health check"
     ! grep -q '^detect-proxy$' "$same_mode_health_tmp/calls" ||
         fail "clashon same-mode path should not run startup port checks"
     ! grep -q '^start-tmux$' "$same_mode_health_tmp/calls" ||
         fail "clashon same-mode path should not start another adapter"
+)
+
+systemd_same_mode_health_tmp=$(make_test_tmpdir "clash-systemd-same-mode-health")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    _get_active_mode() { printf '%s\n' systemd; return 0; }
+    _detect_proxy_port() { printf 'detect-proxy\n' >>"$systemd_same_mode_health_tmp/calls"; }
+    _ensure_ext_addr_available() { printf 'ensure-ext\n' >>"$systemd_same_mode_health_tmp/calls"; }
+    _clash_service_start() { printf 'start-%s\n' "$1" >>"$systemd_same_mode_health_tmp/calls"; }
+    clashstatus() { printf 'public-status %s\n' "$*" >>"$systemd_same_mode_health_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'api-health %s\n' "$*" >>"$systemd_same_mode_health_tmp/calls"; return 1; }
+    _okcat() { printf '%s\n' "$*" >>"$systemd_same_mode_health_tmp/ok.log"; }
+    _failcat() { printf '%s\n' "$*" >>"$systemd_same_mode_health_tmp/fail.log"; }
+
+    clashon --mode systemd
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "clashon systemd same-mode path should fail when the API is unavailable"
+    grep -qx 'api-health --mode systemd' "$systemd_same_mode_health_tmp/calls" ||
+        fail "clashon systemd same-mode path should verify API health"
+    ! grep -q '^public-status' "$systemd_same_mode_health_tmp/calls" ||
+        fail "clashon systemd same-mode path should not trust public systemctl status as API health"
+    ! grep -q '^detect-proxy$' "$systemd_same_mode_health_tmp/calls" ||
+        fail "clashon systemd same-mode path should not run startup port checks"
+    ! grep -q '^start-systemd$' "$systemd_same_mode_health_tmp/calls" ||
+        fail "clashon systemd same-mode path should not start another adapter"
 )
 
 no_conflict_tmp=$(make_test_tmpdir "clash-no-conflict-return")
@@ -566,7 +600,7 @@ EOF
     DEFAULT_HTTP_PORT=7890
     DEFAULT_SOCKS_PORT=7891
     _is_port_used() { return 1; }
-    clashstatus() { return 1; }
+    _clash_api_health_check() { return 1; }
     _merge_config() { printf 'merge\n' >>"$no_conflict_tmp/calls"; }
 
     _detect_proxy_port
@@ -617,7 +651,7 @@ EOF
     DEFAULT_SOCKS_PORT=7891
     _is_port_used() { return 0; }
     _get_random_port() { printf '%s\n' 18080; }
-    clashstatus() { return 1; }
+    _clash_api_health_check() { return 1; }
     _merge_config() { printf 'merge\n' >>"$proxy_conflict_tmp/calls"; }
     _failcat() { printf '%s\n' "$*" >>"$proxy_conflict_tmp/fail.log"; }
 
@@ -903,7 +937,7 @@ on_ext_fail_tmp=$(make_test_tmpdir "clash-on-ext-fail")
     _ensure_ext_addr_available() { printf 'ensure-ext\n' >>"$on_ext_fail_tmp/calls"; return 1; }
     _get_active_mode() { return 1; }
     _clash_service_start() { printf 'start-%s\n' "$1" >>"$on_ext_fail_tmp/calls"; return 0; }
-    clashstatus() { return 0; }
+    _clash_api_health_check() { return 0; }
     _okcat() { :; }
     _failcat() { printf '%s\n' "$*" >>"$on_ext_fail_tmp/fail.log"; }
 
@@ -932,7 +966,8 @@ rollback_tmp=$(make_test_tmpdir "clash-runtime-rollback")
     _ensure_ext_addr_available() { :; }
     _okcat() { :; }
     _failcat() { printf '%s\n' "$*" >>"$rollback_tmp/fail.log"; }
-    clashstatus() { return 1; }
+    clashstatus() { return 0; }
+    _clash_api_health_check() { return 1; }
     sleep() { SECONDS=$((SECONDS + 10)); }
 
     _clash_adapter_tmux_start() {
