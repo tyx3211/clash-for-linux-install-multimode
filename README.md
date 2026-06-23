@@ -1,8 +1,6 @@
 # Clash/Mihomo Linux 多模式托管安装工具
 
-默认免 sudo，以 `tmux` / `nohup` 在用户态托管内核，更适合共享机和普通用户环境；其中 `tmux` 便于查看会话、日志和手工排障。需要 Tun 时，可切换到 sudo + `systemd` 模式。
-
-中文简介：Clash/Mihomo Linux 多模式托管安装工具，默认 no-sudo `tmux` / `nohup` 用户态运行，适合共享机；可选 sudo `systemd` / Tun，适合单用户机器或明确授权的专用机器。
+默认免 sudo，以 `tmux` / `nohup` 在用户态托管内核，更适合共享机和普通用户环境；其中 `tmux` 会话便于查看、排障和手工管理。需要 Tun 时，可显式切换到 sudo + `systemd` 模式，适合单用户机器或明确授权的专用机器。
 
 ## 🚀 新用户 3 分钟上手
 
