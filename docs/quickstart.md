@@ -323,7 +323,7 @@ clashrestart --mode systemd
 clashtun on
 ```
 
-如果是单用户机器，并且需要 root shell 也自动加载同一个 clashctl 入口，可以显式执行：
+如果是单用户机器，并且需要 root shell 也能使用 `clashproxy on` 或继承 `clashproxy on -g` 的自动代理偏好，可以显式同步 root rc：
 
 ```bash
 sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"

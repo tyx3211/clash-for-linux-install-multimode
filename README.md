@@ -40,13 +40,13 @@ bash install.sh --gh-proxy https://gh-proxy.org
 . "$HOME/clashctl/scripts/cmd/clashctl.sh"
 ```
 
-如果这是单用户机器，并且我们选择了 sudo `systemd` / Tun 路线，希望 root 新开的 bash shell 也自动加载同一个 `clashctl` 入口，可以显式同步 root rc：
+可选：在单用户机器或明确授权的专用机器上，如果已经选择 sudo `systemd` / Tun 路线，并且希望 root shell 也能直接执行 `clashproxy on`，或继承 `clashproxy on -g` 的自动代理偏好，可以同步 root rc：
 
 ```bash
 sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
 ```
 
-共享机不建议执行这一步；脚本会尽量支持 root 管理时的权限修复。root shell 更推荐只使用只读命令和代理入口，例如 `clashstatus`、`clashlog`、`clashproxy on/off/status`；需要 root 新 shell 自动代理时，再配合 `clashproxy on -g`。不建议 root 日常执行订阅、mixin、运行模式切换等持久可写配置操作。
+共享机跳过这一步。同步 root rc 只是为了让 root 复用代理入口和只读命令，不是建议用 root 日常管理配置；订阅、mixin、secret 和运行模式仍建议回到安装用户 shell 操作。
 完整取舍见 [当前版本使用指南：root shell 使用建议](docs/usage-guide.md#root-shell-使用建议)。
 
 只有看到 `enjoy` 和 `clashctl` 帮助输出后，才算完整安装成功。如果安装末尾提示“安装目录已保留”，先不要卸载重装，按脚本输出的诊断命令排查。更完整的处理步骤见 [快速上手教程：安装末尾失败](docs/quickstart.md#安装末尾失败).
@@ -131,6 +131,7 @@ clashctl update-self
 更多说明：
 
 - [上游致谢与项目差异](docs/upstream-and-differences.md)
+- [开发者设计说明](docs/developer-design-notes.md)
 - [快速上手教程](docs/quickstart.md)
 - [当前版本使用指南](docs/usage-guide.md)
 - [旧版迁移指南](docs/legacy-migration.md)
@@ -153,11 +154,11 @@ clashctl update-self
 - `clashproxy status` 会显示当前终端实际环境变量，并在它们和当前运行配置不一致时提示刷新；只有 `no_proxy` / `NO_PROXY` 不算代理开启。
 - 新终端是否自动写入代理变量，由 `config/clashctl.yaml` 里的 sidecar 配置控制。
 
-## 🧪 开发者测试
+## 🧪 开发者文档与测试
 
 测试默认在 `/tmp/tyx/clash-test-run.*` 下创建临时运行目录，退出时自动清理。在当前测试 shell 中 source `clashctl.sh` 的用例，应默认落到测试沙箱安装目录，不能读取或操作开发者真实的 `~/clashctl`、真实 `mihomo` 进程或真实 `tmux` 会话。只有专门验证 `.env` / install-state 覆盖语义的用例，才应显式清理沙箱变量后测试解析行为。
 
-常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
+和上游同步、systemd 降权运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
 
 ## 🚀 安装
 
