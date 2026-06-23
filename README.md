@@ -40,6 +40,14 @@ bash install.sh --gh-proxy https://gh-proxy.org
 . "$HOME/clashctl/scripts/cmd/clashctl.sh"
 ```
 
+如果这是单用户机器，并且我们选择了 sudo `systemd` / Tun 路线，希望 root 新开的 bash shell 也自动加载同一个 `clashctl` 入口，可以显式同步 root rc：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
+```
+
+共享机不建议执行这一步；root 通常只需要手工设置代理变量，不需要管理普通用户的代理配置。
+
 只有看到 `enjoy` 和 `clashctl` 帮助输出后，才算完整安装成功。如果安装末尾提示“安装目录已保留”，先不要卸载重装，按脚本输出的诊断命令排查。更完整的处理步骤见 [快速上手教程：安装末尾失败](docs/quickstart.md#安装末尾失败).
 
 ### 2. 日常启动
@@ -558,7 +566,14 @@ sudo bash ~/clashctl/uninstall.sh
 ```
 
 - 请执行安装目录里的卸载脚本，而不是源码仓库里的同名脚本，避免把安装副本和源码目录混淆。
-- 如果曾执行过 root rc 同步，请在卸载前运行 `sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"`；如果已经卸载，按卸载脚本最后打印的 `--cmd-dir` 命令，从源码仓库删除 `/root/.bashrc` 中对应的 clashctl 块。
+
+如果曾执行过 root rc 同步，卸载前先删除 root rc 中的同步块：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"
+```
+
+如果已经卸载，按卸载脚本最后打印的 `--cmd-dir` 命令，从源码仓库删除 `/root/.bashrc` 中对应的 clashctl 块。
 
 ## 🔗 相关项目
 
