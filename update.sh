@@ -302,6 +302,9 @@ _validate_source_tree() {
         scripts/install/archive-safe.sh
         scripts/install/service-render.sh
         scripts/install/rc.sh
+        scripts/tools/root-rc-common.sh
+        scripts/tools/sync-root-rc.sh
+        scripts/tools/unsync-root-rc.sh
         scripts/init/systemd.sh
         scripts/init/OpenRC.sh
         scripts/init/SysVinit.sh

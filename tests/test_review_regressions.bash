@@ -150,6 +150,29 @@ assert_file_contains "$CLASHCTL_SH" 'tun[[:space:]]+管理 Tun 模式' \
 assert_file_contains "$PREFLIGHT_SH" 'CLASH_INSTALL_CREATED_DIR|trap .*CLASH_BASE_DIR|staging' \
     "install should clean up directories it created when install preparation fails"
 
+assert_file_contains "$PREFLIGHT_SH" '^_mark_install_recoverable\(\)' \
+    "install should expose a recoverable marker for failures after scripts and services are deployed"
+
+recoverable_mark_line=$(grep -n '_mark_install_recoverable' "$INSTALL_SH" | head -1 | cut -d: -f1)
+installed_source_line=$(grep -n '^\. "\$CLASH_CMD_DIR/clashctl.sh"' "$INSTALL_SH" | head -1 | cut -d: -f1)
+subscription_use_line=$(grep -n 'clashsub use 1' "$INSTALL_SH" | head -1 | cut -d: -f1)
+[ -n "$recoverable_mark_line" ] && [ -n "$subscription_use_line" ] && [ "$recoverable_mark_line" -lt "$subscription_use_line" ] ||
+    fail "install should preserve the installed directory before subscription activation can fail"
+[ -n "$recoverable_mark_line" ] && [ -n "$installed_source_line" ] && [ "$recoverable_mark_line" -lt "$installed_source_line" ] ||
+    fail "install should preserve the installed directory before loading deployed clashctl can fail"
+
+assert_file_contains "$INSTALL_SH" '_install_post_setup_failure' \
+    "late install failures should print diagnostics instead of only suggesting clashlog"
+
+assert_file_contains "$INSTALL_SH" '_clashctl_chown_sudo_user_tree "\$CLASH_BASE_DIR"' \
+    "sudo install should recursively return the deployed install directory to the target user"
+
+assert_file_contains "$INSTALL_SH" 'tail -n 200 \\"\$FILE_LOG\\"' \
+    "late install failure diagnostics should include a direct log command"
+
+assert_file_contains "$INSTALL_SH" '_failcat "当前终端立即加载命令：\. \\"\$CLASH_CMD_DIR/clashctl\.sh\\""' \
+    "late install failure diagnostics should tell users how to load clashctl in the current shell"
+
 cleanup_tmp=$(make_test_tmpdir "clash-cleanup")
 cleanup_target="${cleanup_tmp}/install"
 (
@@ -166,6 +189,24 @@ cleanup_target="${cleanup_tmp}/install"
 ) >/dev/null 2>&1 || true
 [ ! -e "$cleanup_target" ] ||
     fail "install cleanup trap should remove directories created before an install failure"
+
+recoverable_cleanup_tmp=$(make_test_tmpdir "clash-recoverable-cleanup")
+recoverable_cleanup_target="${recoverable_cleanup_tmp}/install"
+(
+    set +e
+    . "$CLASHCTL_SH"
+    . "$PREFLIGHT_SH"
+
+    CLASHCTL_ERROR_EXIT=1
+    CLASH_BASE_DIR="$recoverable_cleanup_target"
+    _refresh_install_paths
+    _register_install_cleanup
+    mkdir -p "$CLASH_BASE_DIR"
+    _mark_install_recoverable
+    _error_quit "late probe failure"
+) >/dev/null 2>&1 || true
+[ -d "$recoverable_cleanup_target" ] ||
+    fail "install cleanup trap should preserve deployed directories after marking install recoverable"
 
 missing_service_tmp=$(make_test_tmpdir "clash-missing-service")
 (

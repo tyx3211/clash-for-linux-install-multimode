@@ -65,6 +65,62 @@ CLASH_CONFIG_URL="https://example.com/sub?clash=3&extend=1"
 . "$HOME/clashctl/scripts/cmd/clashctl.sh"
 ```
 
+只有看到 `enjoy` 和 `clashctl` 帮助输出后，才进入下面的启动步骤。如果安装末尾失败，请先看下一节。
+
+### 安装末尾失败
+
+安装分成两段：前半段部署脚本、二进制、配置模板和可选 systemd 服务；后半段导入订阅、合并运行时配置、启动内核并做健康检查。
+
+如果看到“安装脚本已部署，但后续配置或启动失败；安装目录已保留”，说明前半段已经完成，`~/clashctl` 不应再被删除。此时不要先卸载重装，先加载命令并看三种托管模式的探测结果：
+
+```bash
+. "$HOME/clashctl/scripts/cmd/clashctl.sh"
+clashstatus --all
+```
+
+tmux / nohup 路线看文件日志：
+
+```bash
+tail -n 200 "$HOME/clashctl/resources/mihomo.log"
+```
+
+systemd 路线看系统服务状态和 journal 日志，因为 systemd 服务的标准输出和错误通常不写入 `mihomo.log`：
+
+```bash
+systemctl --no-pager --full status mihomo
+journalctl -u mihomo -n 120 --no-pager
+```
+
+如果普通用户看不到 systemd journal，改用：
+
+```bash
+sudo journalctl -u mihomo -n 120 --no-pager
+```
+
+这里仍然是系统级 systemd 服务，不是 `systemd --user`。
+
+如果日志里出现 `resources/runtime.yaml: permission denied`，说明 sudo 安装或排障过程中把运行时文件写成了错误属主。确认 `~/clashctl` 是自己的安装目录后，执行：
+
+```bash
+ls -ld "$HOME/clashctl" "$HOME/clashctl/config" "$HOME/clashctl/resources" "$HOME/clashctl/resources/runtime.yaml"
+sudo chown -R "$(id -u):$(id -g)" "$HOME/clashctl"
+clashmixin -m
+clashrestart --mode systemd
+```
+
+其他常见原因包括订阅生成的配置无法启动、控制端口被占用、当前用户没有免密 `sudo -n systemctl` 权限。修好 `config/mixin.yaml` 或订阅后，tmux / nohup 路线执行：
+
+```bash
+clashmixin -m
+clashrestart --mode tmux
+```
+
+systemd 路线则执行：
+
+```bash
+clashrestart --mode systemd
+```
+
 ## 启动代理
 
 ```bash
@@ -97,6 +153,8 @@ clashrestart --mode systemd
 ```bash
 clashtun on
 ```
+
+systemd / Tun 路线适合单用户机器、个人虚拟机或明确授权的专用机器。共享机上不要随意开启 Tun，因为 Tun 可能把整台机器的流量按这个安装用户的规则接管。
 
 ## 让当前终端走代理
 
@@ -212,7 +270,7 @@ clashctl update-self --no-gh-proxy
 使用本地源码目录刷新安装目录：
 
 ```bash
-clashctl update-self --source "$HOME/src/clash-shell/clash-for-linux-install-multimode"
+clashctl update-self --source "<源码目录>"
 ```
 
 如果不迁移而选择重装，请先按 [旧版迁移指南：如果选择重装](legacy-migration.md#如果选择重装) 备份关键文件，再按新版布局恢复。
@@ -242,12 +300,39 @@ sudo bash "$HOME/clashctl/uninstall.sh"
 默认 `tmux` / `nohup` 模式不支持 Tun。需要 Tun 时，在允许 sudo 的机器上安装 systemd 服务：
 
 运行时管理 systemd 服务需要 root 或免密 sudo。可以先用 `sudo -n systemctl status mihomo` 判断当前用户是否具备非交互 sudo 能力；如果该命令要求输入密码，`clashrestart --mode systemd` 和 `clashtun on` 也会失败。
+
+这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机上开启 Tun 可能影响整机流量路径，不建议作为默认方案。
 sudo 安装只是提权写入系统服务；默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。
+
+先注册系统服务：
 
 ```bash
 sudo bash install.sh --init systemd
+```
+
+回到普通用户 shell 后，如果命令尚不可用，先加载入口：
+
+```bash
+. "$HOME/clashctl/scripts/cmd/clashctl.sh"
+```
+
+然后切换到 systemd 托管并开启 Tun：
+
+```bash
 clashrestart --mode systemd
 clashtun on
+```
+
+如果是单用户机器，并且需要 root shell 也自动加载同一个 clashctl 入口，可以显式执行：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
+```
+
+共享机不建议执行这一步。需要取消时执行：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"
 ```
 
 共享机上如果没有明确授权，不建议启用这条路线。

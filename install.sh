@@ -52,6 +52,33 @@ _copy_install_payload() {
         tar -C "$CLASH_BASE_DIR" -xf -
 }
 
+_install_chown_sudo_user() {
+    _clashctl_chown_sudo_user_tree "$CLASH_BASE_DIR"
+}
+
+_install_post_setup_failure() {
+    local status=$1
+    local context=${2:-后续配置或启动失败}
+
+    _install_chown_sudo_user >/dev/null 2>&1 || true
+    _failcat "安装脚本已部署，但 ${context}；安装目录已保留：$CLASH_BASE_DIR"
+    if declare -F _clash_print_failure_diagnostics >/dev/null 2>&1; then
+        _clash_print_failure_diagnostics "${INIT_TYPE:-}"
+    else
+        _failcat "当前终端立即加载命令：. \"$CLASH_CMD_DIR/clashctl.sh\""
+        _failcat "直接查看内核日志：tail -n 200 \"$FILE_LOG\""
+    fi
+    if [ "${INIT_TYPE:-}" = systemd ] && command -v systemctl >/dev/null; then
+        _failcat "以下是 systemd 当前状态摘要："
+        systemctl --no-pager --full status "$KERNEL_NAME" >&2 || true
+        if command -v journalctl >/dev/null; then
+            _failcat "以下是 systemd 最近日志："
+            journalctl -u "$KERNEL_NAME" -n 80 --no-pager >&2 || true
+        fi
+    fi
+    return "$status"
+}
+
 _parse_args "$@"
 _normalize_sudo_install_path
 _validate_kernel_name
@@ -71,7 +98,7 @@ printf '%s\n' 'clash-for-linux-install-multimode' >"$INSTALL_MARKER"
 touch "$CLASH_CONFIG_BASE"
 _set_envs
 _init_config_git
-_is_regular_sudo && chown -R "$SUDO_USER" "$CLASH_BASE_DIR"
+_install_chown_sudo_user || _error_quit "安装目录权限修复失败：$CLASH_BASE_DIR"
 
 CLASH_INSTALL_SERVICE_TOUCHED=true
 _install_service || _error_quit "服务安装失败，请检查启动方式和权限"
@@ -81,11 +108,22 @@ if [ -z "$CLASHCTL_NO_RC" ]; then
 fi
 
 
-# 重新加载已替换占位符的脚本
-. "$CLASH_CMD_DIR/clashctl.sh"
+_mark_install_recoverable
 
-_merge_config || _error_quit "验证失败：请检查 Mixin 配置"
-_detect_proxy_port || _error_quit "代理端口冲突，请按提示修改 Mixin 配置后重试"
+# 重新加载已替换占位符的脚本
+. "$CLASH_CMD_DIR/clashctl.sh" || {
+    _install_post_setup_failure $? "安装后的命令入口加载失败"
+    exit $?
+}
+
+_merge_config || {
+    _install_post_setup_failure $? "默认配置合并失败"
+    exit $?
+}
+_detect_proxy_port || {
+    _install_post_setup_failure $? "代理端口检查失败"
+    exit $?
+}
 
 _valid_config "$CLASH_CONFIG_BASE" && CLASH_CONFIG_URL="file://$CLASH_CONFIG_BASE"
 [ -n "$CLASHCTL_NO_QUIT" ] && {
@@ -95,21 +133,43 @@ _valid_config "$CLASH_CONFIG_BASE" && CLASH_CONFIG_URL="file://$CLASH_CONFIG_BAS
     else
         _okcat "安装已写入 shell rc；如需在当前 shell 立即使用，请执行：. $CLASH_CMD_DIR/clashctl.sh"
     fi
+    _install_chown_sudo_user || _error_quit "安装目录权限修复失败：$CLASH_BASE_DIR"
     _mark_install_complete
     exit 0
 }
 
 if [ -n "$CLASH_CONFIG_URL" ]; then
-    clashsub add "$CLASH_CONFIG_URL" || exit $?
+    clashsub add "$CLASH_CONFIG_URL" || {
+        _install_post_setup_failure $? "订阅导入失败"
+        exit $?
+    }
 else
-    clashsub add || exit $?
+    clashsub add || {
+        _install_post_setup_failure $? "订阅导入失败"
+        exit $?
+    }
 fi
-clashsub use 1 || exit $?
+clashsub use 1 || {
+    _install_post_setup_failure $? "订阅已保存，但启用订阅并重启内核失败"
+    exit $?
+}
 
-[ -z "$(_get_secret)" ] && clashsecret "$(_get_random_val)" >/dev/null
-clashui || _error_quit "Web 控制台地址检测失败"
-clashsecret
+[ -z "$(_get_secret)" ] && {
+    clashsecret "$(_get_random_val)" >/dev/null || {
+        _install_post_setup_failure $? "Web 密钥初始化失败"
+        exit $?
+    }
+}
+clashui || {
+    _install_post_setup_failure $? "Web 控制台地址检测失败"
+    exit $?
+}
+clashsecret || {
+    _install_post_setup_failure $? "Web 密钥显示失败"
+    exit $?
+}
 
+_install_chown_sudo_user || _error_quit "安装目录权限修复失败：$CLASH_BASE_DIR"
 _mark_install_complete
 _okcat '🎉' 'enjoy 🎉'
 clashctl

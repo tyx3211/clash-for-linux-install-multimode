@@ -138,6 +138,10 @@ _mark_install_complete() {
     trap - EXIT
 }
 
+_mark_install_recoverable() {
+    _mark_install_complete
+}
+
 _cleanup_incomplete_install() {
     local status=$?
 

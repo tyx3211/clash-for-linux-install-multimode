@@ -557,6 +557,24 @@ grep -q 'scripts/install/rc.sh' "$update_tmp/source-missing-required.err" ||
 grep -qx 'installed-script' "$source_missing_required_install_dir/scripts/cmd/clashctl.sh" ||
     fail "rejected source missing required modules should not refresh target scripts"
 
+source_missing_tool_dir="$update_tmp/source-missing-tool"
+source_missing_tool_install_dir="$update_tmp/source-missing-tool-install"
+cp -a "$TEST_ROOT/." "$source_missing_tool_dir"
+mkdir -p "$source_missing_tool_install_dir/resources" "$source_missing_tool_install_dir/scripts/tools" "$source_missing_tool_install_dir/scripts/cmd"
+write_test_install_yq "$source_missing_tool_install_dir"
+printf 'clash-for-linux-install-multimode\n' >"$source_missing_tool_install_dir/.clashctl-install-root"
+printf 'mixin\n' >"$source_missing_tool_install_dir/resources/mixin.yaml"
+printf 'installed-tool\n' >"$source_missing_tool_install_dir/scripts/tools/sync-root-rc.sh"
+printf 'installed-script\n' >"$source_missing_tool_install_dir/scripts/cmd/clashctl.sh"
+rm -f "$source_missing_tool_dir/scripts/tools/sync-root-rc.sh"
+bash "$TEST_ROOT/update.sh" --target "$source_missing_tool_install_dir" --source "$source_missing_tool_dir" \
+    >"$update_tmp/source-missing-tool.out" 2>"$update_tmp/source-missing-tool.err" &&
+    fail "update should reject source directories missing root rc tools"
+grep -q 'scripts/tools/sync-root-rc.sh' "$update_tmp/source-missing-tool.err" ||
+    fail "missing root rc tool rejection should name scripts/tools/sync-root-rc.sh"
+grep -qx 'installed-tool' "$source_missing_tool_install_dir/scripts/tools/sync-root-rc.sh" ||
+    fail "rejected source missing root rc tools should not refresh target scripts"
+
 git_preserve_source_dir="$update_tmp/git-preserve-source"
 git_preserve_install_dir="$update_tmp/git-preserve-install"
 cp -a "$TEST_ROOT/." "$git_preserve_source_dir"

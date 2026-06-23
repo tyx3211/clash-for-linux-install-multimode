@@ -130,6 +130,7 @@ _merge_config() {
         _failcat "运行时配置写入失败：$CLASH_CONFIG_RUNTIME"
         return 1
     }
+    _clashctl_chown_runtime_file || return 1
 }
 
 _restore_runtime_after_restart_failure() {
@@ -140,6 +141,7 @@ _restore_runtime_after_restart_failure() {
     else
         /usr/bin/rm -f "$CLASH_CONFIG_RUNTIME"
     fi
+    _clashctl_chown_runtime_file || return 1
 
     if [ "$was_active" = true ]; then
         _clash_service_stop "$mode" >/dev/null 2>&1 || true
@@ -197,6 +199,7 @@ _merge_config_restart() {
     _clash_service_start "$mode" >/dev/null || {
         _restore_runtime_after_restart_failure "$runtime_restart_backup" "$mode" "$was_active" >/dev/null 2>&1 || true
         _failcat "配置已合并，但内核无法以 $mode 模式重启"
+        _clash_print_failure_diagnostics "$mode"
         return 1
     }
 
@@ -212,7 +215,8 @@ _merge_config_restart() {
     _clash_service_stop "$mode" >/dev/null 2>&1 || true
     _clear_service_state
     _restore_runtime_after_restart_failure "$runtime_restart_backup" "$mode" "$was_active" >/dev/null 2>&1 || true
-    _failcat "配置已合并，但内核重启后健康检查失败：请执行 clashlog 查看日志"
+    _failcat "配置已合并，但 $mode 内核重启后健康检查失败"
+    _clash_print_failure_diagnostics "$mode"
     return 1
 }
 _get_secret() {

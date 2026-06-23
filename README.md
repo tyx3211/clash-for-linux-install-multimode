@@ -1,8 +1,8 @@
 # Clash/Mihomo Linux 多模式托管安装工具
 
-默认免 sudo，以 `tmux` / `nohup` 在用户态托管内核；需要 Tun 时，可切换到 sudo + `systemd` 模式。
+默认免 sudo，以 `tmux` / `nohup` 在用户态托管内核，更适合共享机和普通用户环境；其中 `tmux` 便于查看会话、日志和手工排障。需要 Tun 时，可切换到 sudo + `systemd` 模式。
 
-中文简介：Clash/Mihomo Linux 多模式托管安装工具，默认 no-sudo `tmux` / `nohup` 用户态运行，可选 sudo `systemd` / Tun。
+中文简介：Clash/Mihomo Linux 多模式托管安装工具，默认 no-sudo `tmux` / `nohup` 用户态运行，适合共享机；可选 sudo `systemd` / Tun，适合单用户机器或明确授权的专用机器。
 
 ## 🚀 新用户 3 分钟上手
 
@@ -41,6 +41,8 @@ bash install.sh --gh-proxy https://gh-proxy.org
 ```bash
 . "$HOME/clashctl/scripts/cmd/clashctl.sh"
 ```
+
+只有看到 `enjoy` 和 `clashctl` 帮助输出后，才算完整安装成功。如果安装末尾提示“安装目录已保留”，先不要卸载重装，按脚本输出的诊断命令排查。更完整的处理步骤见 [快速上手教程：安装末尾失败](docs/quickstart.md#安装末尾失败).
 
 ### 2. 日常启动
 
@@ -138,7 +140,7 @@ clashctl update-self
 
 - 本项目以 `INIT_TYPE=tmux` 为默认运行托管模式，请先确保系统已安装 `tmux`。
 - 如需纯用户态但不想依赖 `tmux`，可以在运行时使用 `clashon --mode nohup`。
-- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。
+- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。与上游 root 运行 systemd 服务的权衡见 [上游致谢与项目差异：systemd 降权运行](docs/upstream-and-differences.md#systemd-降权运行).
 - 新安装的 `external-controller` 默认绑定 `127.0.0.1:9090`，远程访问面板请优先使用 SSH 端口转发。旧安装无损更新后不会自动改已有端口，实际地址以 `clashui` 输出为准。
 - `clashproxy on` / `clashproxy off` 只影响当前 shell 的环境变量，不会改系统级代理。
 - `clashproxy status` 会显示当前终端实际环境变量，并在它们和当前运行配置不一致时提示刷新；只有 `no_proxy` / `NO_PROXY` 不算代理开启。
@@ -522,8 +524,8 @@ clashctl update-self --no-gh-proxy
 # 在已经 pull 到最新的源码仓库中执行
 bash update.sh --target "$HOME/clashctl"
 
-# 或从已安装环境显式指定源码仓库
-clashctl update-self --source "$HOME/src/clash-shell/clash-for-linux-install-multimode"
+# 或从已安装环境显式指定当前源码仓库
+clashctl update-self --source "<源码目录>"
 ```
 
 该操作只刷新脚本、service 模板和文档资产，不覆盖 `config/`、`resources/install-state.yaml`、`resources/config.yaml`、`resources/runtime.yaml`、订阅 profiles、日志和运行状态。旧安装目录如果已有 `.env`，会继续保留并只做兼容性更新；旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些文件也会原样保留。
@@ -558,6 +560,7 @@ sudo bash ~/clashctl/uninstall.sh
 ```
 
 - 请执行安装目录里的卸载脚本，而不是源码仓库里的同名脚本，避免把安装副本和源码目录混淆。
+- 如果曾执行过 root rc 同步，请在卸载前运行 `sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"`；如果已经卸载，按卸载脚本最后打印的 `--cmd-dir` 命令，从源码仓库删除 `/root/.bashrc` 中对应的 clashctl 块。
 
 ## 🔗 相关项目
 

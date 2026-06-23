@@ -87,7 +87,39 @@ clashtun on
 
 通过 sudo 安装时，systemd 服务会以 sudo 调用用户身份运行，并由 systemd 授予 `CAP_NET_ADMIN`、`CAP_NET_RAW`、`CAP_NET_BIND_SERVICE`。
 
-运行时的 start/stop/restart 使用 `sudo -n systemctl`，不会停下来等待输入 sudo 密码。如果当前用户没有免密 sudo，systemd/Tun 路线会明确失败。
+运行时的 start/stop/restart 使用 `sudo -n systemctl`，不会停下来等待输入 sudo 密码。如果当前用户没有免密 sudo，systemd/Tun 路线会明确失败。Tun 可能影响整机流量路径，因此这条路线更适合单用户机器、个人虚拟机或明确授权的专用机器；共享机默认不建议开启。
+
+### systemd 降权运行
+
+上游当前主线的 systemd 模板不写 `User=`，因此系统服务默认以 root 运行 mihomo / clash。上游还会在不是 root 时退回 `nohup`，所以它的 systemd 心智模型更接近：
+
+```text
+systemd 模式 = root 安装 + root 运行代理内核
+普通用户模式 = nohup
+```
+
+本项目做了不同取舍：
+
+```text
+sudo systemctl 管理系统服务
+/etc/systemd/system/mihomo.service
+User=<sudo 调用用户>
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+```
+
+也就是说，本项目仍然使用系统级 systemd 服务，不依赖 `systemctl --user`；只是服务进程不以完整 root 身份运行，而是以安装时的普通用户身份运行。systemd 负责把 Tun 和网络代理可能需要的有限能力授予这个进程：
+
+- `CAP_NET_ADMIN`：允许网络管理操作，例如接口配置、路由表修改、透明代理相关网络操作。
+- `CAP_NET_RAW`：允许 raw / packet socket，部分底层网络和透明代理场景会用到。
+- `CAP_NET_BIND_SERVICE`：允许绑定 1024 以下端口；默认 `7890`、`7891`、`9090` 不依赖它，但用户若改成低端口会需要。
+
+这个设计的收益是：
+
+- systemd、tmux、nohup 三种模式都围绕同一个普通用户的安装目录和配置目录工作，运行时切换不容易把文件写成 root-only。
+- 代理内核不是完整 root 进程，权限面比上游 root systemd 路线更小。
+- 仍然保留 Tun 所需的网络能力，不依赖共享机上常被禁用的 `systemd --user`。
+
+它的代价是：sudo 安装阶段生成或替换的运行时文件，必须重新归还给 sudo 调用用户。否则 systemd 服务虽然能启动，但以普通用户身份运行的 mihomo / clash 会读不到 `resources/runtime.yaml`、订阅配置或日志目录。本项目在安装收尾会递归修复安装目录所有权；运行时配置合并后只修复刚生成的 `resources/runtime.yaml`，避免在普通命令里递归改动整个目录。
 
 ### Sidecar 配置分离
 

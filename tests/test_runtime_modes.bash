@@ -801,6 +801,24 @@ log_path_tmp=$(make_test_tmpdir "clash-log-path")
         fail "clashlog should print a clear error when FILE_LOG is empty"
 )
 
+systemd_log_tmp=$(make_test_tmpdir "clash-systemd-log")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    KERNEL_NAME=mihomo
+    FILE_LOG=
+    _get_active_mode() { printf '%s\n' systemd; }
+    _clash_systemd_registered() { return 0; }
+    journalctl() {
+        printf '%s\n' "$*" >"$systemd_log_tmp/journal.args"
+    }
+
+    _clash_service_log -n 20 --no-pager || fail "clashlog should use journalctl for systemd services"
+)
+grep -qx -- '-u mihomo -n 20 --no-pager' "$systemd_log_tmp/journal.args" ||
+    fail "clashlog should pass systemd log requests to journalctl"
+
 status_ext_fail_tmp=$(make_test_tmpdir "clash-status-ext-fail")
 (
     set +e

@@ -163,6 +163,57 @@ CLASH_PROFILES_LOG="${CLASH_RESOURCES_DIR}/profiles.log"
 INSTALL_MARKER="${CLASH_BASE_DIR}/.clashctl-install-root"
 CLASHCTL_CRON_TAG="# clashctl-auto-update"
 
+_clashctl_is_regular_sudo() {
+    [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != root ]
+}
+
+_clashctl_target_owner_spec() {
+    local uid gid
+
+    [ "$(id -u)" -eq 0 ] || return 1
+
+    if [ -n "${CLASH_BASE_DIR:-}" ] && [ -e "$CLASH_BASE_DIR" ]; then
+        uid=$(stat -c '%u' "$CLASH_BASE_DIR" 2>/dev/null) || return 1
+        gid=$(stat -c '%g' "$CLASH_BASE_DIR" 2>/dev/null) || return 1
+        if [ "$uid" != 0 ]; then
+            printf '%s:%s\n' "$uid" "$gid"
+            return 0
+        fi
+    fi
+
+    if _clashctl_is_regular_sudo; then
+        uid=$(id -u "$SUDO_USER" 2>/dev/null) || return 1
+        gid=$(id -g "$SUDO_USER" 2>/dev/null) || return 1
+        printf '%s:%s\n' "$uid" "$gid"
+        return 0
+    fi
+
+    return 1
+}
+
+_clashctl_chown_sudo_user_path() {
+    local path=$1 owner_spec
+
+    owner_spec=$(_clashctl_target_owner_spec 2>/dev/null) || return 0
+    [ -e "$path" ] || return 0
+    chown "$owner_spec" "$path"
+}
+
+_clashctl_chown_sudo_user_tree() {
+    local path=$1 owner_spec
+
+    owner_spec=$(_clashctl_target_owner_spec 2>/dev/null) || return 0
+    [ -e "$path" ] || return 0
+    chown -R "$owner_spec" "$path"
+}
+
+_clashctl_chown_runtime_file() {
+    _clashctl_chown_sudo_user_path "$CLASH_CONFIG_RUNTIME" || {
+        _failcat "运行时配置权限修复失败：$CLASH_CONFIG_RUNTIME"
+        return 1
+    }
+}
+
 _clashctl_runtime_var_value() {
     case "$1" in
     CLASH_BASE_DIR)

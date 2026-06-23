@@ -43,6 +43,163 @@ EOF
     set +e
     . "$CLASHCTL_SH"
 
+    BIN_YQ="$runtime_config_tmp/yq-merge"
+    CLASH_CONFIG_BASE="$runtime_config_tmp/config.yaml"
+    CLASH_CONFIG_MIXIN="$runtime_config_tmp/mixin.yaml"
+    CLASH_CONFIG_RUNTIME="$runtime_config_tmp/runtime.yaml"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = eval-all ]; then
+    printf 'port: 7890\n'
+    exit 0
+fi
+exit 7
+EOF
+    chmod +x "$BIN_YQ"
+    printf 'proxies: []\n' >"$CLASH_CONFIG_BASE"
+    printf '{}\n' >"$CLASH_CONFIG_MIXIN"
+    _valid_config() { return 0; }
+    _clashctl_chown_runtime_file() {
+        printf '%s\n' "$CLASH_CONFIG_RUNTIME" >"$runtime_config_tmp/chown-runtime"
+    }
+
+    _merge_config || fail "_merge_config should write runtime config with fake yq"
+)
+grep -qx "$runtime_config_tmp/runtime.yaml" "$runtime_config_tmp/chown-runtime" ||
+    fail "_merge_config should repair runtime.yaml ownership after replacing it"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    unset SUDO_USER
+    CLASH_BASE_DIR="$runtime_config_tmp/user-owned-install"
+    mkdir -p "$CLASH_BASE_DIR"
+    touch "$runtime_config_tmp/root-written-runtime.yaml"
+    id() {
+        case "$*" in
+        -u)
+            printf '0\n'
+            ;;
+        *)
+            command id "$@"
+            ;;
+        esac
+    }
+    stat() {
+        case "$*" in
+        "-c %u $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        "-c %g $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        *)
+            command stat "$@"
+            ;;
+        esac
+    }
+    chown() {
+        printf '%s\n' "$*" >"$runtime_config_tmp/chown-owner-fallback"
+    }
+
+    _clashctl_chown_sudo_user_path "$runtime_config_tmp/root-written-runtime.yaml" ||
+        fail "root-owned fallback chown should succeed"
+)
+grep -qx -- '1000:1000 '"$runtime_config_tmp"'/root-written-runtime.yaml' "$runtime_config_tmp/chown-owner-fallback" ||
+    fail "root without SUDO_USER should repair runtime files to the install directory owner without recursive chown"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    unset SUDO_USER
+    CLASH_BASE_DIR="$runtime_config_tmp/user-owned-install-tree"
+    mkdir -p "$CLASH_BASE_DIR/config"
+    id() {
+        case "$*" in
+        -u)
+            printf '0\n'
+            ;;
+        *)
+            command id "$@"
+            ;;
+        esac
+    }
+    stat() {
+        case "$*" in
+        "-c %u $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        "-c %g $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        *)
+            command stat "$@"
+            ;;
+        esac
+    }
+    chown() {
+        printf '%s\n' "$*" >"$runtime_config_tmp/chown-owner-tree"
+    }
+
+    _clashctl_chown_sudo_user_tree "$CLASH_BASE_DIR" ||
+        fail "install-level fallback chown should succeed"
+)
+grep -qx -- '-R 1000:1000 '"$runtime_config_tmp"'/user-owned-install-tree' "$runtime_config_tmp/chown-owner-tree" ||
+    fail "install-level owner repair should use recursive chown on the install directory"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    SUDO_USER=wrong_sudo_user
+    CLASH_BASE_DIR="$runtime_config_tmp/owned-by-install-user"
+    mkdir -p "$CLASH_BASE_DIR"
+    touch "$runtime_config_tmp/mismatched-sudo-runtime.yaml"
+    id() {
+        case "$*" in
+        -u)
+            printf '0\n'
+            ;;
+        "-u wrong_sudo_user")
+            printf '2000\n'
+            ;;
+        "-g wrong_sudo_user")
+            printf '2000\n'
+            ;;
+        *)
+            command id "$@"
+            ;;
+        esac
+    }
+    stat() {
+        case "$*" in
+        "-c %u $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        "-c %g $CLASH_BASE_DIR")
+            printf '1000\n'
+            ;;
+        *)
+            command stat "$@"
+            ;;
+        esac
+    }
+    chown() {
+        printf '%s\n' "$*" >"$runtime_config_tmp/chown-owner-mismatch"
+    }
+
+    _clashctl_chown_sudo_user_path "$runtime_config_tmp/mismatched-sudo-runtime.yaml" ||
+        fail "mismatched SUDO_USER owner repair should succeed"
+)
+grep -qx -- '1000:1000 '"$runtime_config_tmp"'/mismatched-sudo-runtime.yaml' "$runtime_config_tmp/chown-owner-mismatch" ||
+    fail "root owner repair should prefer the install directory owner over a mismatched SUDO_USER"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
     BIN_YQ="$runtime_config_tmp/yq-defaults"
     CLASH_CONFIG_RUNTIME="$runtime_config_tmp/runtime.yaml"
     DEFAULT_HTTP_PORT=7890

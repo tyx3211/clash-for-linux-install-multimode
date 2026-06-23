@@ -27,11 +27,11 @@ install_order=$(
 grep -q $'parse\nvalidate_init\nvalid' <<<"$install_order" ||
     fail "install should validate init mode before creating install directories"
 
-assert_file_contains "$INSTALL_SH" '_detect_proxy_port \|\| _error_quit' \
-    "install should fail when proxy port conflict handling cannot be persisted"
+assert_file_contains "$INSTALL_SH" '_detect_proxy_port \|\| \{' \
+    "install should fail recoverably when proxy port conflict handling cannot be persisted"
 
-assert_file_contains "$INSTALL_SH" 'clashui \|\| _error_quit' \
-    "install should fail when Web console endpoint detection or startup fails"
+assert_file_contains "$INSTALL_SH" 'clashui \|\| \{' \
+    "install should fail recoverably when Web console endpoint detection or startup fails"
 
 assert_file_not_contains "$PREFLIGHT_SH" '--insecure' \
     "dependency downloads should not disable TLS certificate verification by default"

@@ -468,7 +468,37 @@ _clash_service_stop() {
     return 0
 }
 
+_clash_print_failure_diagnostics() {
+    local mode=${1:-} cmd_dir=${CLASH_CMD_DIR:-${THIS_SCRIPT_DIR:-}}
+
+    [ -n "$cmd_dir" ] &&
+        _failcat "当前终端立即加载命令：. \"$cmd_dir/clashctl.sh\"" || true
+
+    if [ "$mode" = systemd ]; then
+        _failcat "systemd 状态：systemctl --no-pager --full status \"$KERNEL_NAME\"" || true
+        _failcat "systemd 日志：journalctl -u \"$KERNEL_NAME\" -n 120 --no-pager" || true
+    elif [ -n "${FILE_LOG:-}" ]; then
+        _failcat "直接查看内核日志：tail -n 200 \"$FILE_LOG\"" || true
+    fi
+    return 0
+}
+
+_clash_service_log_uses_journal() {
+    local mode
+
+    mode=$(_get_active_mode 2>/dev/null || true)
+    [ -n "$mode" ] || mode=$(_get_default_service_mode)
+    [ "$mode" = systemd ] || return 1
+    _clash_systemd_registered || return 1
+    command -v journalctl >/dev/null
+}
+
 _clash_service_log() {
+    _clash_service_log_uses_journal && {
+        journalctl -u "$KERNEL_NAME" "$@"
+        return $?
+    }
+
     [ -n "${FILE_LOG:-}" ] || {
         _failcat "日志路径未初始化，请重新 source 安装目录中的 clashctl.sh"
         return 1
@@ -558,6 +588,7 @@ EOF
 
     _clash_service_start "$mode" >/dev/null || {
         _failcat "启动失败：无法以 $mode 模式启动"
+        _clash_print_failure_diagnostics "$mode"
         return 1
     }
 
@@ -573,7 +604,8 @@ EOF
     {
         _clash_service_stop "$mode" >/dev/null 2>&1 || true
         _clear_service_state
-        _failcat '启动失败: 执行 clashlog 查看日志'
+        _failcat "启动失败：$mode 内核启动后健康检查失败"
+        _clash_print_failure_diagnostics "$mode"
         return 1
     }
 }

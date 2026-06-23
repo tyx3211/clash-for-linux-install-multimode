@@ -153,6 +153,35 @@ clashproxy mode silent
 
 `clashon` / `clashrestart` 只启动或切换内核托管模式，不会自动写入当前终端代理变量。需要当前终端走代理时，执行 `clashproxy on`。`clashproxy status` 中只有 `no_proxy` / `NO_PROXY` 时，不视为代理开启。`clashoff` 只关闭内核，不改当前终端代理变量；需要关闭当前终端代理时，执行 `clashproxy off`。如果曾经执行过 `clashproxy on -g`，关闭内核后建议再执行 `clashproxy off -g`，避免新终端自动写入已经不可用的代理地址。
 
+如果已经切到 root shell，只想让 root 里的 `curl`、`apt` 等命令走当前用户启动的代理，更稳妥的方式是只设置代理变量：
+
+```bash
+export http_proxy=http://127.0.0.1:7890
+export https_proxy=http://127.0.0.1:7890
+export all_proxy=socks5h://127.0.0.1:7891
+export no_proxy=localhost,127.0.0.1,::1
+```
+
+单用户机器上，root 和安装用户通常是同一个管理主体；如果明确是在管理该用户的安装实例，可以 source 该用户的 `clashctl.sh`，但不要改用户名、用户组和目录权限。共享机上不建议 root source 某个普通用户的 `clashctl.sh` 并执行写操作；这会修改该用户的配置，Tun 还可能让整机流量按这个用户的规则转发。项目会尽量做权限 guard（权限保护）和权限修复：root 生成的运行时文件会按安装目录 owner（属主）归还给安装用户；但 root 仍然建议日常只消费代理端口，少做 `clashsub`、`clashmixin` 这类写配置操作。
+
+如果确认是单用户机器，且使用 systemd/Tun，希望 root 新开的 bash shell 自动加载同一个 clashctl 入口，可以显式同步当前安装用户的 clashctl rc 块：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
+```
+
+删除同步块：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"
+```
+
+如果一开始就是 root 执行安装，那就是 root 自己的安装实例，不需要把普通用户 rc 同步到 root。排障时如需 root 写入，结束后检查：
+
+```bash
+ls -ld "$HOME/clashctl" "$HOME/clashctl/config" "$HOME/clashctl/resources"
+```
+
 Web 面板：
 
 ```bash
@@ -254,7 +283,7 @@ bash update.sh --target "$HOME/clashctl"
 在已安装环境中也可以显式指定刚 pull 过的源码仓库：
 
 ```bash
-clashctl update-self --source "$HOME/src/clash-shell/clash-for-linux-install-multimode"
+clashctl update-self --source "<源码目录>"
 ```
 
 项目脚本更新会保留 `config/`、`resources/install-state.yaml`、`resources/config.yaml`、`resources/runtime.yaml`、`resources/profiles/`、日志和 pid 状态。旧安装目录如果已有 `.env`，会继续保留；旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些文件也会原样保留。

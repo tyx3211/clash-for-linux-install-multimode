@@ -140,4 +140,5 @@ command -v crontab >&/dev/null && {
 /usr/bin/rm -rf "$CLASH_BASE_REAL"
 
 echo '✨' '已卸载，相关配置已清除'
+printf '📢 如果之前执行过 root rc 同步，请从源码仓库执行：sudo bash scripts/tools/unsync-root-rc.sh --cmd-dir "%s/scripts/cmd"\n' "$CLASH_BASE_DIR"
 _quit
