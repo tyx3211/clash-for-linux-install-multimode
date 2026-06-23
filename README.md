@@ -56,11 +56,13 @@ sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
 ```bash
 clashon
 clashstatus
+clashdoctor
 clashproxy on
 ```
 
 - `clashon` 启动 mihomo / clash 内核，默认使用 `tmux`。
 - `clashstatus` 查看当前内核是否运行。
+- `clashdoctor` 一次展示托管模式、API 健康、当前终端代理、全局自动代理和 Tun 状态，排障前先跑它最省事。
 - `clashproxy on` 只给当前终端写入代理环境变量，不改系统代理。
 - `systemd` 路线安装后，先执行 `clashrestart --mode systemd` 切到 systemd 托管；Tun 再执行 `clashtun on`。
 

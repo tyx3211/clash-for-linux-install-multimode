@@ -76,6 +76,7 @@ CLASH_CONFIG_URL="https://example.com/sub?clash=3&extend=1"
 ```bash
 . "$HOME/clashctl/scripts/cmd/clashctl.sh"
 clashstatus --all
+clashdoctor
 ```
 
 tmux / nohup 路线看文件日志：
@@ -126,9 +127,10 @@ clashrestart --mode systemd
 ```bash
 clashon
 clashstatus
-clashhealth
 clashdoctor
 ```
+
+`clashdoctor` 会一次展示托管模式、API 健康、当前终端代理、全局自动代理和 Tun 状态。第一次启动后或排障前，先跑它可以少敲多条状态命令。
 
 默认会使用 `tmux` 托管内核。可以查看 tmux 会话：
 
