@@ -686,3 +686,5 @@ trap - EXIT INT TERM
 
 [ "$legacy" = true ] && printf '📢 已按历史 nosudo-tmux 安装目录执行原地迁移，旧配置已保留。\n'
 printf '✨ 项目脚本已更新，用户配置和订阅状态已保留：%s\n' "$target"
+printf '👉 当前 shell 立即加载新命令：source "%s/scripts/cmd/clashctl.sh"\n' "$target"
+printf '👉 如需用新脚本重启内核：clashctl off && clashctl on\n'

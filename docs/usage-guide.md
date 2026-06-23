@@ -178,6 +178,9 @@ clashrestart --mode nohup
 clashoff
 clashstatus
 clashstatus --all
+clashhealth
+clashctl health-check
+clashdoctor
 ```
 
 代理环境变量：
@@ -189,6 +192,8 @@ clashproxy status
 clashproxy on -g
 clashproxy mode silent
 ```
+
+`clashhealth` / `clashctl health-check` 始终请求本机 `/version` API；在 systemd/Tun 路线下，它和 `tmux` / `nohup` 一样看 API 健康，而不是展示 `systemctl status`。`clashdoctor` / `clashctl doctor` 会聚合展示 `clashstatus --all`、API 健康、`clashproxy status`、`clashproxy mode status` 和 `clashtun status`，适合排障前先看全局状态。
 
 `clashon` / `clashrestart` 只启动或切换内核托管模式，不会自动写入当前终端代理变量。需要当前终端走代理时，执行 `clashproxy on`。`clashproxy status` 中只有 `no_proxy` / `NO_PROXY` 时，不视为代理开启。`clashoff` 只关闭内核，不改当前终端代理变量；需要关闭当前终端代理时，执行 `clashproxy off`。如果曾经执行过 `clashproxy on -g`，关闭内核后建议再执行 `clashproxy off -g`，避免新终端自动写入已经不可用的代理地址。
 
@@ -298,6 +303,18 @@ clashctl update-self --source "<源码目录>"
 
 项目脚本更新会保留 `config/`、`resources/install-state.yaml`、`resources/config.yaml`、`resources/runtime.yaml`、`resources/profiles/`、日志和 pid 状态。旧安装目录如果已有 `.env`，会继续保留；旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些文件也会原样保留。
 
+更新完成后，当前 shell 里已经加载过的函数不会自动替换。立刻使用新版命令：
+
+```bash
+source "$HOME/clashctl/scripts/cmd/clashctl.sh"
+```
+
+如果需要让运行中的内核也按新版脚本重新拉起：
+
+```bash
+clashctl off && clashctl on
+```
+
 ## 配置目录与 git
 
 `git clone` 得到的是源码目录，用来执行初装或本地 `--source` 更新。默认安装目录 `~/clashctl` 是运行时目录，不是项目 git 仓库；初装不会复制源码目录里的 `.git`，`clashctl update-self` 也不依赖安装目录中的 git 状态。
@@ -387,7 +404,7 @@ ssh -L 9090:127.0.0.1:9090 user@remote-host
 http://localhost:9090/ui
 ```
 
-如果使用 VS Code Remote-SSH，也可以直接在 VS Code 里转发远端 `9090` 端口。
+如果使用 VS Code Remote-SSH，也可以直接在 VS Code 里转发远端 `9090` 端口。若希望用独立面板可视化管理 SSH 端口转发，而不是绑定到 VS Code 项目窗口，可以使用 [tyx3211/ssh-tunnel-panel](https://github.com/tyx3211/ssh-tunnel-panel)。
 
 旧安装执行 `clashctl update-self` 后不会自动改已有 `mixin.yaml`，因此旧安装可能仍在使用 `127.0.0.1:23571` 或其他自定义端口。实际地址以 `clashui` 输出或当前 `mixin.yaml` 为准。如需迁移到 9090，手工修改 `external-controller` 后执行 `clashmixin -m` 或 `clashctl mixin -m`。
 

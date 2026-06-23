@@ -907,6 +907,70 @@ systemd_default_status_tmp=$(make_test_tmpdir "clash-systemd-default-status")
 grep -qx -- '--no-pager --full status mihomo' "$systemd_default_status_tmp/systemctl.args" ||
     fail "clashstatus should show systemctl status for inactive default systemd installs"
 
+health_tmp=$(make_test_tmpdir "clash-health-command")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    _clash_api_health_check() {
+        printf 'api-health %s\n' "$*" >>"$health_tmp/calls"
+        return 0
+    }
+
+    clashhealth --mode systemd
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "clashhealth should return the API health check result"
+    grep -qx 'api-health --mode systemd' "$health_tmp/calls" ||
+        fail "clashhealth should forward mode arguments to the API health check"
+)
+
+doctor_tmp=$(make_test_tmpdir "clash-doctor-command")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    clashstatus() { printf 'status %s\n' "$*" >>"$doctor_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'health %s\n' "$*" >>"$doctor_tmp/calls"; return 0; }
+    clashproxy() { printf 'proxy %s\n' "$*" >>"$doctor_tmp/calls"; return 1; }
+    tunstatus() { printf 'tun\n' >>"$doctor_tmp/calls"; return 1; }
+
+    clashdoctor >"$doctor_tmp/out" 2>"$doctor_tmp/err"
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "clashdoctor should not fail only because proxy or tun informational status is closed"
+    grep -qx 'status --all' "$doctor_tmp/calls" ||
+        fail "clashdoctor should include all adapter status"
+    grep -qx 'health ' "$doctor_tmp/calls" ||
+        fail "clashdoctor should include API health"
+    grep -qx 'proxy status' "$doctor_tmp/calls" ||
+        fail "clashdoctor should include current terminal proxy status"
+    grep -qx 'proxy mode status' "$doctor_tmp/calls" ||
+        fail "clashdoctor should include global auto proxy mode"
+    grep -qx 'tun' "$doctor_tmp/calls" ||
+        fail "clashdoctor should include Tun status"
+)
+
+doctor_health_fail_tmp=$(make_test_tmpdir "clash-doctor-health-fail")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    clashstatus() { printf 'status %s\n' "$*" >>"$doctor_health_fail_tmp/calls"; return 0; }
+    _clash_api_health_check() { printf 'health\n' >>"$doctor_health_fail_tmp/calls"; return 1; }
+    clashproxy() { printf 'proxy %s\n' "$*" >>"$doctor_health_fail_tmp/calls"; return 0; }
+    tunstatus() { printf 'tun\n' >>"$doctor_health_fail_tmp/calls"; return 0; }
+
+    clashdoctor >"$doctor_health_fail_tmp/out" 2>"$doctor_health_fail_tmp/err"
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "clashdoctor should fail when API health check fails"
+    grep -qx 'proxy status' "$doctor_health_fail_tmp/calls" ||
+        fail "clashdoctor should keep displaying proxy status after API health failure"
+    grep -qx 'tun' "$doctor_health_fail_tmp/calls" ||
+        fail "clashdoctor should keep displaying Tun status after API health failure"
+)
+
 status_ext_fail_tmp=$(make_test_tmpdir "clash-status-ext-fail")
 (
     set +e

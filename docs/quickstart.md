@@ -126,6 +126,8 @@ clashrestart --mode systemd
 ```bash
 clashon
 clashstatus
+clashhealth
+clashdoctor
 ```
 
 默认会使用 `tmux` 托管内核。可以查看 tmux 会话：
@@ -190,6 +192,8 @@ clashui
 ssh -L 9090:127.0.0.1:9090 user@remote-host
 ```
 
+如果需要可视化管理 SSH 端口转发，但暂时不想使用 VS Code Remote-SSH 自带端口转发，可以使用 [tyx3211/ssh-tunnel-panel](https://github.com/tyx3211/ssh-tunnel-panel)。
+
 然后访问：
 
 ```text
@@ -249,6 +253,18 @@ clashctl update-self
 ```
 
 该命令默认从本项目的 GitHub `main` 分支下载最新源码，并无损刷新当前安装目录。它不会停止内核、不会启动内核、不会覆盖 `config/`、`resources/install-state.yaml`、订阅、运行时配置、日志和 pid 状态。
+
+更新完成后，当前 shell 里已加载的函数不会自动替换。立刻使用新版命令：
+
+```bash
+source "$HOME/clashctl/scripts/cmd/clashctl.sh"
+```
+
+如需让运行中的内核也按新版脚本重新拉起：
+
+```bash
+clashctl off && clashctl on
+```
 
 默认安装目录不是 git 仓库，也不需要 `.git`。如果旧安装目录里已经有 `.git`，通常是历史安装复制遗留；确认没有自定义用途后，可以手工删除。配置版本管理推荐放在 `~/clashctl/config`。
 

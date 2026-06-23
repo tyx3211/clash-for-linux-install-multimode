@@ -49,6 +49,14 @@ function clashctl() {
         shift
         clashstatus "$@"
         ;;
+    health | health-check)
+        shift
+        clashhealth "$@"
+        ;;
+    doctor)
+        shift
+        clashdoctor "$@"
+        ;;
     log)
         shift
         clashlog "$@"
@@ -100,6 +108,8 @@ Commands:
   restart               重启或切换托管模式
   proxy                 管理当前终端代理变量
   status                内核状态
+  health, health-check  检查内核 API 健康
+  doctor                聚合展示常用状态
   ui                    面板地址
   sub                   订阅管理
   log                   内核日志
@@ -115,6 +125,8 @@ Global Options:
 Quick Start:
   clashon                         启动内核，默认 tmux
   clashstatus                     查看当前运行状态
+  clashhealth                     检查 API 健康
+  clashdoctor                     一次性展示运行、代理、Tun 状态
   clashproxy on                   当前终端开启代理变量
   clashui                         输出 Web 面板地址
   clashoff                        关闭当前活跃托管模式

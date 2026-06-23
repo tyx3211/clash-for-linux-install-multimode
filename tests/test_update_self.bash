@@ -49,7 +49,7 @@ printf 'old-script\n' >"$install_dir/scripts/cmd/clashctl.sh"
 
 (
     cd "$source_dir"
-    CLASHCTL_NO_RC=1 bash update.sh --target "$install_dir"
+    CLASHCTL_NO_RC=1 bash update.sh --target "$install_dir" >"$update_tmp/update.out"
 )
 
 [ "$(cat "$install_dir/resources/mixin.yaml")" = "user-mixin" ] ||
@@ -71,6 +71,10 @@ grep -qx 'install_dir: "'$install_dir'"' "$install_dir/resources/install-state.y
 
 grep -q 'function clashctl' "$install_dir/scripts/cmd/clashctl.sh" ||
     fail "update should refresh installed clashctl script"
+grep -q "source \"$install_dir/scripts/cmd/clashctl.sh\"" "$update_tmp/update.out" ||
+    fail "update should tell users how to load the refreshed shell commands immediately"
+grep -q 'clashctl off && clashctl on' "$update_tmp/update.out" ||
+    fail "update should tell users how to restart the kernel with refreshed scripts if needed"
 
 [ ! -e "$install_dir/.git" ] ||
     fail "update should not create .git in install dir when source is a git checkout"

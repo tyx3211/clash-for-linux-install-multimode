@@ -862,6 +862,63 @@ EOF
     _clash_api_health_check --mode "$mode"
 }
 
+function clashhealth() {
+    case "${1:-}" in
+    -h | --help)
+        cat <<EOF
+
+- 检查当前活跃内核 API 健康
+  clashhealth
+
+- 检查指定托管模式的内核 API 健康
+  clashhealth --mode tmux|nohup|systemd
+
+EOF
+        return 0
+        ;;
+    esac
+    _clash_api_health_check "$@"
+}
+
+_clashdoctor_section() {
+    printf '\n[%s]\n' "$1"
+}
+
+function clashdoctor() {
+    case "${1:-}" in
+    -h | --help)
+        cat <<EOF
+
+- 聚合展示运行状态、API 健康、代理环境、自动代理和 Tun 状态
+  clashdoctor
+
+- 聚合展示时按指定托管模式检查 API 健康
+  clashdoctor --mode tmux|nohup|systemd
+
+EOF
+        return 0
+        ;;
+    esac
+
+    local health_status=0
+    _clashdoctor_section "托管模式"
+    clashstatus --all || true
+
+    _clashdoctor_section "API 健康"
+    clashhealth "$@" || health_status=$?
+
+    _clashdoctor_section "当前终端代理"
+    clashproxy status || true
+
+    _clashdoctor_section "全局自动代理"
+    clashproxy mode status || true
+
+    _clashdoctor_section "Tun"
+    tunstatus || true
+
+    return "$health_status"
+}
+
 function clashlog() {
     _clash_service_log "$@"
 }

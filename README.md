@@ -276,6 +276,8 @@ Commands:
   off                   关闭代理内核
   restart               重启或切换托管模式
   status                查看内核状态
+  health, health-check  检查内核 API 健康
+  doctor                聚合展示常用状态
   proxy                 管理当前终端代理变量
   ui                    查看 Web 面板地址
   secret                管理 Web 密钥
@@ -317,6 +319,8 @@ $ clashproxy on -g
 - `clashon` 和 `clashrestart` 不写入当前终端代理变量；需要当前终端走代理时，显式执行 `clashproxy on`。
 - `clashoff` 只关闭内核，不改当前终端代理变量；需要关闭当前终端代理时，显式执行 `clashproxy off`。如果曾经用 `clashproxy on -g` 打开新终端自动代理，还需要显式执行 `clashproxy off -g`。
 - `clashstatus --all` 可以查看 `tmux`、`nohup`、`systemd` 三种 adapter 的进程探测结果；默认 `clashstatus` 在 `tmux` / `nohup` 下检查本机 API，在 `systemd` 下展示 `systemctl status`。
+- `clashhealth` / `clashctl health-check` 始终检查本机 `/version` API；在 systemd/Tun 路线下也不会把 `systemctl status` 当成 API 健康。
+- `clashdoctor` / `clashctl doctor` 会一次性展示托管模式、API 健康、当前终端代理、全局自动代理和 Tun 状态，适合排障前先看全局画像。
 - `clashproxy on` / `clashproxy off` 只负责写入或清理当前 shell 的代理变量，不改 sidecar 全局状态。
 - `clashproxy on -g` / `clashproxy off -g` 会在处理当前 shell 的同时，更新 sidecar 中的全局自动代理开关。
 - `clashproxy status` 会输出当前 shell 的实际代理变量，并在它们和当前 `runtime.yaml` 不一致时提示重新执行 `clashproxy off && clashproxy on`；只有 `no_proxy` / `NO_PROXY` 不算代理开启。
@@ -372,6 +376,7 @@ clashproxy mode --help
 - `clashui` 会输出控制台入口地址；默认推荐通过 SSH 端口转发访问。
 - 当控制口绑定 `127.0.0.1` / `localhost` 时，`clashui` 只输出本机地址和 SSH 转发示例，不提示公网地址或开放防火墙端口。
 - 如需远程访问面板，请确保 `secret` 与客户端保持一致。
+- 如果需要可视化管理 SSH 端口转发，但暂时不想用 VS Code Remote-SSH 自带端口转发，可以使用另一个项目：[tyx3211/ssh-tunnel-panel](https://github.com/tyx3211/ssh-tunnel-panel)。
 - zashboard 的访问路径是 `/ui`，不是根路径；也就是说最终访问地址应类似：
   `http://localhost:<controller_port>/ui`
 
@@ -537,6 +542,18 @@ clashctl update-self --source "<源码目录>"
 ```
 
 该操作只刷新脚本、service 模板和文档资产，不覆盖 `config/`、`resources/install-state.yaml`、`resources/config.yaml`、`resources/runtime.yaml`、订阅 profiles、日志和运行状态。旧安装目录如果已有 `.env`，会继续保留并只做兼容性更新；旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些文件也会原样保留。
+
+更新完成后，当前 shell 里已经加载过的函数不会自动替换。立刻使用新脚本：
+
+```bash
+source "$HOME/clashctl/scripts/cmd/clashctl.sh"
+```
+
+如果希望运行中的内核也按新版脚本重新拉起，再执行：
+
+```bash
+clashctl off && clashctl on
+```
 
 ### 如果选择重装
 

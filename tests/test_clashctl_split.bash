@@ -459,6 +459,10 @@ assert_file_contains "$SERVICE_RUNTIME_SH" '^function clashon\(\)' \
     "clashon command should live in runtime service library"
 assert_file_contains "$SERVICE_RUNTIME_SH" '^function clashstatus\(\)' \
     "clashstatus command should live in runtime service library"
+assert_file_contains "$SERVICE_RUNTIME_SH" '^function clashhealth\(\)' \
+    "clashhealth command should live in runtime service library"
+assert_file_contains "$SERVICE_RUNTIME_SH" '^function clashdoctor\(\)' \
+    "clashdoctor aggregate status command should live in runtime service library"
 
 assert_file_contains "$CONFIG_SH" '^_merge_config\(\)' \
     "config merge should live in config library"

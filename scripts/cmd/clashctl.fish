@@ -6,7 +6,7 @@ function _clashctl_bash_call
     set -l fn $argv[1]
     set -e argv[1]
     switch $fn
-        case clashui clashstatus clashsecret clashmixin clashsub clashtun clashlog clashupgrade clashhelp clashctl clashon clashoff clashrestart clashproxy
+        case clashui clashstatus clashhealth clashdoctor clashsecret clashmixin clashsub clashtun clashlog clashupgrade clashhelp clashctl clashon clashoff clashrestart clashproxy
         case '*'
             echo "unknown clashctl fish wrapper function: $fn" >&2
             return 1
@@ -17,7 +17,7 @@ function _clashctl_bash_call
         fn=$2
         shift 2
         case "$fn" in
-        clashui|clashstatus|clashsecret|clashmixin|clashsub|clashtun|clashlog|clashupgrade|clashhelp|clashctl|clashon|clashoff|clashrestart|clashproxy)
+        clashui|clashstatus|clashhealth|clashdoctor|clashsecret|clashmixin|clashsub|clashtun|clashlog|clashupgrade|clashhelp|clashctl|clashon|clashoff|clashrestart|clashproxy)
             ;;
         *)
             exit 64
@@ -75,6 +75,14 @@ function clashstatus
     _clashctl_bash_call clashstatus $argv
 end
 
+function clashhealth
+    _clashctl_bash_call clashhealth $argv
+end
+
+function clashdoctor
+    _clashctl_bash_call clashdoctor $argv
+end
+
 function clashsecret
     _clashctl_bash_call clashsecret $argv
 end
@@ -120,6 +128,10 @@ function clashctl
             clashoff $argv
         case restart
             clashrestart $argv
+        case health health-check
+            clashhealth $argv
+        case doctor
+            clashdoctor $argv
         case update-self
             _clashctl_bash_call clashctl update-self $argv
         case '*'
