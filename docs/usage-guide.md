@@ -153,6 +153,10 @@ clashproxy mode silent
 
 `clashon` / `clashrestart` 只启动或切换内核托管模式，不会自动写入当前终端代理变量。需要当前终端走代理时，执行 `clashproxy on`。`clashproxy status` 中只有 `no_proxy` / `NO_PROXY` 时，不视为代理开启。`clashoff` 只关闭内核，不改当前终端代理变量；需要关闭当前终端代理时，执行 `clashproxy off`。如果曾经执行过 `clashproxy on -g`，关闭内核后建议再执行 `clashproxy off -g`，避免新终端自动写入已经不可用的代理地址。
 
+## root shell 与 root rc 态度
+
+本项目默认不修改 `/root/.bashrc`，也不把 root shell 当作普通用户安装的常规管理入口。默认态度是：root shell 只消费代理端口，普通用户 shell 管理订阅、mixin 和运行模式。这样更适合共享机，也能避免 root 写配置后留下 root-owned 文件。
+
 如果已经切到 root shell，只想让 root 里的 `curl`、`apt` 等命令走当前用户启动的代理，更稳妥的方式是只设置代理变量：
 
 ```bash
