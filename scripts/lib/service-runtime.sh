@@ -402,6 +402,18 @@ _clash_adapter_systemd_is_active() {
     systemctl is-active "$KERNEL_NAME" >/dev/null 2>&1
 }
 
+_clash_adapter_systemd_status() {
+    command -v systemctl >/dev/null || {
+        _failcat "未检测到 systemctl，无法查看 systemd 状态"
+        return 1
+    }
+    _clash_systemd_registered || {
+        _failcat "systemd 服务未注册或不属于当前安装，请先 sudo bash install.sh --init systemd"
+        return 1
+    }
+    systemctl --no-pager --full status "$KERNEL_NAME"
+}
+
 _clash_adapter_call() {
     local mode=$1 action=$2
     "_clash_adapter_${mode}_${action}"
@@ -728,7 +740,7 @@ clashrestart() {
     _with_service_lock _clashrestart_impl "$@"
 }
 function clashstatus() {
-    local mode active_status any_active_status=1
+    local mode active_status any_active_status=1 default_mode
     case "${1:-}" in
     --all)
         shift
@@ -776,6 +788,10 @@ EOF
             _failcat "检测到多个托管模式同时运行，请执行 clashstatus --all"
             return 1
         }
+        if [ "$active_status" -ne 0 ]; then
+            default_mode=$(_get_default_service_mode)
+            [ "$default_mode" = systemd ] && _clash_systemd_registered && mode=systemd
+        fi
         ;;
     *)
         _failcat "未知参数：$1"
@@ -786,6 +802,10 @@ EOF
         _failcat "未知参数：$1"
         return 1
     }
+    if [ "$mode" = systemd ]; then
+        _clash_adapter_systemd_status
+        return $?
+    fi
     [ -n "$mode" ] && _clash_service_is_active "$mode" >/dev/null 2>&1 || {
         _failcat "内核未运行"
         return 1

@@ -115,6 +115,37 @@ grep -q 'http://localhost:9090/ui' "$ui_loopback_tmp/out" ||
     fail "loopback clashui output should show localhost browser URL"
 grep -q 'ssh -L 9090:127.0.0.1:9090' "$ui_loopback_tmp/out" ||
     fail "loopback clashui output should show an SSH forwarding example"
+python3 - "$ui_loopback_tmp/out" <<'PY' ||
+import re
+import sys
+import unicodedata
+
+ansi = re.compile(r'\x1b\[[0-9;]*m')
+
+def visible_width(line: str) -> int:
+    line = ansi.sub('', line.rstrip('\n'))
+    total = 0
+    wide_emoji = {'😼', '🏠', '🔁', '🌐', '☁', '🔓', '🌏'}
+    for ch in line:
+        if unicodedata.category(ch) in {'Mn', 'Me', 'Cf'}:
+            continue
+        total += 2 if ch in wide_emoji or unicodedata.east_asian_width(ch) in {'W', 'F'} else 1
+    return total
+
+with open(sys.argv[1], encoding='utf-8') as handle:
+    box_lines = [
+        line for line in handle
+        if line.startswith(('╔', '║', '╚'))
+    ]
+
+if not box_lines:
+    sys.exit(1)
+widths = [visible_width(line) for line in box_lines]
+if len(set(widths)) != 1:
+    print(widths, file=sys.stderr)
+    sys.exit(1)
+PY
+    fail "loopback clashui box should keep every visible line aligned"
 ! grep -q '公网' "$ui_loopback_tmp/out" ||
     fail "loopback clashui output should not show public address"
 ! grep -q '放行端口' "$ui_loopback_tmp/out" ||

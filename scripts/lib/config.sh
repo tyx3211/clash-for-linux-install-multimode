@@ -1,3 +1,69 @@
+_clashui_visible_width() {
+    local text=$1 char width=0
+    text=$(printf '%s' "$text" | sed $'s/\x1B\\[[0-9;?]*[ -/]*[@-~]//g')
+    while [ -n "$text" ]; do
+        char=${text:0:1}
+        text=${text:1}
+        case "$char" in
+        $'\uFE0F' | $'\u200D')
+            ;;
+        [一-龥] | [：，。；！？（）【】《》、] | 😼 | 🏠 | 🔁 | 🌐 | ☁ | 🔓 | 🌏)
+            width=$((width + 2))
+            ;;
+        *)
+            width=$((width + 1))
+            ;;
+        esac
+    done
+    printf '%s\n' "$width"
+}
+
+_clashui_repeat_char() {
+    local count=$1 char=$2 i
+    for ((i = 0; i < count; i++)); do
+        printf '%s' "$char"
+    done
+}
+
+_clashui_box_line() {
+    local width=$1 text=${2:-} text_width padding
+    text_width=$(_clashui_visible_width "$text")
+    padding=$((width - text_width))
+    [ "$padding" -lt 0 ] && padding=0
+    printf '║%s' "$text"
+    _clashui_repeat_char "$padding" ' '
+    printf '║\n'
+}
+
+_clashui_print_box() {
+    local line width=0 line_width
+    local lines=("$@")
+    for line in "${lines[@]}"; do
+        line_width=$(_clashui_visible_width "$line")
+        [ "$line_width" -gt "$width" ] && width=$line_width
+    done
+    width=$((width + 2))
+
+    printf "╔"
+    _clashui_repeat_char "$width" "═"
+    printf "╗\n"
+    for line in "${lines[@]}"; do
+        case "$line" in
+        __sep__)
+            printf "║"
+            _clashui_repeat_char "$width" "═"
+            printf "║\n"
+            ;;
+        *)
+            _clashui_box_line "$width" "$line"
+            ;;
+        esac
+    done
+    printf "╚"
+    _clashui_repeat_char "$width" "═"
+    printf "╝\n"
+}
+
 function clashui() {
     _detect_ext_addr || return 1
     clashstatus >&/dev/null || clashon >/dev/null || return 1
@@ -8,16 +74,15 @@ function clashui() {
     case "$local_ip" in
     127.* | localhost | ::1)
         printf "\n"
-        printf "╔═══════════════════════════════════════════════╗\n"
-        printf "║                %s                  ║\n" "$(_okcat 'Web 控制台')"
-        printf "║═══════════════════════════════════════════════║\n"
-        printf "║                                               ║\n"
-        printf "║     🏠 本机：%-31s  ║\n" "$local_address"
-        printf "║     🔁 转发：ssh -L %-22s ║\n" "${EXT_PORT}:127.0.0.1:${EXT_PORT} user@remote-host"
-        printf "║     🌐 浏览器：%-27s  ║\n" "http://localhost:${EXT_PORT}/ui"
-        printf "║     ☁️  公共：%-31s  ║\n" "$URL_CLASH_UI"
-        printf "║                                               ║\n"
-        printf "╚═══════════════════════════════════════════════╝\n"
+        _clashui_print_box \
+            "                😼 Web 控制台" \
+            "__sep__" \
+            "" \
+            "     🏠 本机：$local_address" \
+            "     🔁 转发：ssh -L ${EXT_PORT}:127.0.0.1:${EXT_PORT} user@remote-host" \
+            "     🌐 浏览器：http://localhost:${EXT_PORT}/ui" \
+            "     ☁️  公共：$URL_CLASH_UI" \
+            ""
         printf "\n"
         return 0
         ;;
@@ -28,16 +93,15 @@ function clashui() {
     local public_address
     public_address=$(_format_http_url "${public_ip:-公网}" "$EXT_PORT" /ui)
     printf "\n"
-    printf "╔═══════════════════════════════════════════════╗\n"
-    printf "║                %s                  ║\n" "$(_okcat 'Web 控制台')"
-    printf "║═══════════════════════════════════════════════║\n"
-    printf "║                                               ║\n"
-    printf "║     🔓 注意放行端口：%-5s                    ║\n" "$EXT_PORT"
-    printf "║     🏠 内网：%-31s  ║\n" "$local_address"
-    printf "║     🌏 公网：%-31s  ║\n" "$public_address"
-    printf "║     ☁️  公共：%-31s  ║\n" "$URL_CLASH_UI"
-    printf "║                                               ║\n"
-    printf "╚═══════════════════════════════════════════════╝\n"
+    _clashui_print_box \
+        "                😼 Web 控制台" \
+        "__sep__" \
+        "" \
+        "     🔓 注意放行端口：$EXT_PORT" \
+        "     🏠 内网：$local_address" \
+        "     🌏 公网：$public_address" \
+        "     ☁️  公共：$URL_CLASH_UI" \
+        ""
     printf "\n"
 }
 

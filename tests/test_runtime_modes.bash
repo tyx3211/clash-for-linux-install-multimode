@@ -819,6 +819,60 @@ systemd_log_tmp=$(make_test_tmpdir "clash-systemd-log")
 grep -qx -- '-u mihomo -n 20 --no-pager' "$systemd_log_tmp/journal.args" ||
     fail "clashlog should pass systemd log requests to journalctl"
 
+systemd_status_tmp=$(make_test_tmpdir "clash-systemd-status")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    KERNEL_NAME=mihomo
+    _get_active_mode() { printf '%s\n' systemd; return 0; }
+    _clash_systemd_registered() { return 0; }
+    _clash_service_is_active() { [ "${1:-}" = systemd ]; }
+    _detect_ext_addr() {
+        printf 'detect-ext\n' >>"$systemd_status_tmp/calls"
+        return 1
+    }
+    curl() {
+        printf 'curl\n' >>"$systemd_status_tmp/calls"
+        return 0
+    }
+    systemctl() {
+        printf '%s\n' "$*" >>"$systemd_status_tmp/systemctl.args"
+        return 0
+    }
+
+    clashstatus >/dev/null 2>&1
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "clashstatus should return the systemd status result for active systemd mode"
+)
+grep -qx -- '--no-pager --full status mihomo' "$systemd_status_tmp/systemctl.args" ||
+    fail "clashstatus should display systemctl status when the active mode is systemd"
+[ ! -e "$systemd_status_tmp/calls" ] || ! grep -q '^curl$' "$systemd_status_tmp/calls" ||
+    fail "clashstatus should not use the API probe as the primary status display for systemd mode"
+
+systemd_default_status_tmp=$(make_test_tmpdir "clash-systemd-default-status")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    KERNEL_NAME=mihomo
+    _get_active_mode() { return 1; }
+    _get_default_service_mode() { printf '%s\n' systemd; }
+    _clash_systemd_registered() { return 0; }
+    systemctl() {
+        printf '%s\n' "$*" >>"$systemd_default_status_tmp/systemctl.args"
+        return 3
+    }
+
+    clashstatus >/dev/null 2>&1
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "clashstatus should keep systemctl status exit code when default systemd service is inactive"
+)
+grep -qx -- '--no-pager --full status mihomo' "$systemd_default_status_tmp/systemctl.args" ||
+    fail "clashstatus should show systemctl status for inactive default systemd installs"
+
 status_ext_fail_tmp=$(make_test_tmpdir "clash-status-ext-fail")
 (
     set +e
