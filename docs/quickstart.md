@@ -335,6 +335,6 @@ sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
 sudo "$HOME/clashctl/scripts/tools/unsync-root-rc.sh"
 ```
 
-完整取舍见 [当前版本使用指南：root shell 与 root rc 态度](usage-guide.md#root-shell-与-root-rc-态度)。
+完整取舍见 [当前版本使用指南：root shell 使用建议](usage-guide.md#root-shell-使用建议)。
 
 共享机上如果没有明确授权，不建议启用这条路线。

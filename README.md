@@ -46,8 +46,8 @@ bash install.sh --gh-proxy https://gh-proxy.org
 sudo "$HOME/clashctl/scripts/tools/sync-root-rc.sh"
 ```
 
-共享机不建议执行这一步；root 通常只需要手工设置代理变量，不需要管理普通用户的代理配置。
-完整取舍见 [当前版本使用指南：root shell 与 root rc 态度](docs/usage-guide.md#root-shell-与-root-rc-态度)。
+共享机不建议执行这一步；脚本会尽量支持 root 管理时的权限修复，但 root 通常只需要手工设置代理变量，不建议日常改普通用户的代理配置。
+完整取舍见 [当前版本使用指南：root shell 使用建议](docs/usage-guide.md#root-shell-使用建议)。
 
 只有看到 `enjoy` 和 `clashctl` 帮助输出后，才算完整安装成功。如果安装末尾提示“安装目录已保留”，先不要卸载重装，按脚本输出的诊断命令排查。更完整的处理步骤见 [快速上手教程：安装末尾失败](docs/quickstart.md#安装末尾失败).
 
