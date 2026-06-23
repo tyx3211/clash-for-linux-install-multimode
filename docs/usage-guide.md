@@ -155,9 +155,9 @@ clashproxy mode silent
 
 ## root shell 使用建议
 
-本项目默认不修改 `/root/.bashrc`，也不把 root shell 当作普通用户安装的常规管理入口。脚本会尽量支持 root 管理普通用户安装实例：root 生成的运行时文件会按安装目录 owner（属主）归还给安装用户，避免影响安装用户后续使用。但默认建议仍然是：root shell 只消费代理端口，普通用户 shell 管理订阅、mixin 和运行模式。这样更适合共享机，也能降低 root 改配置带来的心智负担。
+本项目默认不修改 `/root/.bashrc`，也不把 root shell 当作普通用户安装的常规管理入口。脚本会尽量支持 root 管理普通用户安装实例：root 生成的运行时文件会按安装目录 owner（属主）归还给安装用户，避免影响安装用户后续使用。但默认建议不是“root 完全不用 clashctl”，而是把 root 的使用范围收窄到只读命令和代理入口：`clashstatus`、`clashlog`、`clashui`、`clashproxy on/off/status` 都适合作为 root shell 的日常用法；订阅、mixin、运行模式切换、密钥修改这类持久可写配置，仍建议回到安装用户 shell 操作。
 
-如果已经切到 root shell，只想让 root 里的 `curl`、`apt` 等命令走当前用户启动的代理，更稳妥的方式是只设置代理变量：
+如果已经切到 root shell，只想让 root 里的 `curl`、`apt` 等命令走当前用户启动的代理，可以直接执行 `clashproxy on`。这个命令只影响当前 root shell，不会修改订阅、mixin 或运行模式。若希望 root 新开的 bash shell 自动获得代理，可以在安装用户侧开启 `clashproxy on -g`，再同步 root rc；已同步的 root rc 会读取同一套自动代理偏好，root 不需要再改代理配置。也可以不用 clashctl，手工设置代理变量：
 
 ```bash
 export http_proxy=http://127.0.0.1:7890
@@ -166,7 +166,7 @@ export all_proxy=socks5h://127.0.0.1:7891
 export no_proxy=localhost,127.0.0.1,::1
 ```
 
-单用户机器上，root 和安装用户通常是同一个管理主体；如果明确是在管理该用户的安装实例，可以 source 该用户的 `clashctl.sh`，但不要改用户名、用户组和目录权限。共享机上不建议 root source 某个普通用户的 `clashctl.sh` 并执行写操作；这会修改该用户的配置，Tun 还可能让整机流量按这个用户的规则转发。即使脚本已经做了权限 guard（权限保护）和权限修复，root 日常仍建议只消费代理端口，少做 `clashsub`、`clashmixin` 这类写配置操作。
+单用户机器上，root 和安装用户通常是同一个管理主体；如果明确是在管理该用户的安装实例，可以 source 该用户的 `clashctl.sh`，但不要改用户名、用户组和目录权限。共享机上不建议 root source 某个普通用户的 `clashctl.sh` 并执行写操作；这会修改该用户的配置，Tun 还可能让整机流量按这个用户的规则转发。即使脚本已经做了权限 guard（权限保护）和权限修复，root 日常仍建议只用只读命令、当前会话代理命令，或明确需要的 `clashproxy on -g` 自动代理偏好；少做 `clashsub`、`clashmixin`、`clashsecret <secret>`、`clashrestart --mode ...` 这类持久可写或会改变运行状态的操作。
 
 如果确认是单用户机器，且使用 systemd/Tun，希望 root 新开的 bash shell 自动加载同一个 clashctl 入口，可以显式同步当前安装用户的 clashctl rc 块：
 

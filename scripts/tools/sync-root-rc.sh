@@ -85,4 +85,4 @@ fi
 
 _root_rc_write_atomic "$target_rc" "$merged_file"
 _root_rc_ok "已同步 root bash rc：$target_rc"
-_root_rc_ok "root shell 将复用安装用户的 clashctl 入口；仍建议 root 日常只消费代理端口，少做配置写操作"
+_root_rc_ok "root shell 将复用安装用户的 clashctl 入口；建议日常只用只读命令、clashproxy on/off/status 或 clashproxy on -g，少做配置写操作"
