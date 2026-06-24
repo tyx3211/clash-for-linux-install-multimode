@@ -110,7 +110,7 @@ _install_state_write() {
     mkdir -p "$dir" || return 1
     tmp=$(mktemp "${dir}/.install-state.XXXXXX") || return 1
     yq=$(_install_state_yq_for_file "$file") || {
-        /usr/bin/rm -f "$tmp"
+        rm -f "$tmp"
         return 1
     }
 
@@ -136,11 +136,11 @@ _install_state_write() {
             .versions.yq = strenv(INSTALL_STATE_VERSION_YQ) |
             .versions.subconverter = strenv(INSTALL_STATE_VERSION_SUBCONVERTER)
         ' >"$tmp" || {
-        /usr/bin/rm -f "$tmp"
+        rm -f "$tmp"
         return 1
     }
 
-    /bin/mv -f "$tmp" "$file"
+    mv -f "$tmp" "$file"
 }
 
 _install_state_validate_kernel_name() {

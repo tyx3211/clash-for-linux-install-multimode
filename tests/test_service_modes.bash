@@ -16,6 +16,9 @@ REFRESH_SYSTEMD_SH="$TEST_ROOT/scripts/tools/refresh-systemd-service.sh"
 [ -f "$REFRESH_SYSTEMD_SH" ] ||
     fail "project should provide a dedicated systemd service refresh tool for existing installs"
 
+assert_file_contains "$REFRESH_SYSTEMD_SH" 'command -v install' \
+    "systemd refresh tool should check install command availability before writing units"
+
 assert_file_contains "$ENV_FILE" '^INIT_TYPE=tmux$' \
     "tmux should remain the default init mode"
 

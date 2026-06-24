@@ -174,12 +174,12 @@ _cleanup_incomplete_install() {
     if [ "${CLASH_INSTALL_RC_TOUCHED:-false}" = true ]; then
         _revoke_rc >/dev/null 2>&1 || true
     fi
-    /usr/bin/rm -rf "$CLASH_INSTALL_CREATED_DIR" 2>/dev/null || true
+    rm -rf "$CLASH_INSTALL_CREATED_DIR" 2>/dev/null || true
     return "$exit_status"
 }
 
 _valid_required() {
-    local required_cmds=("xz" "pgrep" "pkill" "curl" "tar" 'unzip' "shuf")
+    local required_cmds=("xz" "pgrep" "curl" "tar" "unzip" "shuf" "gzip" "install" "mktemp" "rm" "mv" "cp" "chmod" "stat")
     local missing=()
 
     case "${INIT_TYPE:-tmux}" in
@@ -198,7 +198,70 @@ _valid_required() {
         _error_quit "请先安装以下命令：${missing[*]}"
         return $?
     fi
+    _valid_pgrep_support || return 1
+    _valid_unzip_support || return 1
+    _valid_install_support || return 1
     return 0
+}
+
+_valid_pgrep_support() {
+    local status probe="clashctl-pgrep-probe-$$"
+
+    pgrep -P "$$" >/dev/null 2>&1
+    status=$?
+    case "$status" in
+    0 | 1)
+        ;;
+    *)
+        _error_quit "当前 pgrep 不支持 -P 选项，请安装 procps/procps-ng 完整版"
+        return $?
+        ;;
+    esac
+
+    pgrep -u "$(id -u)" -x "$probe" >/dev/null 2>&1
+    status=$?
+    case "$status" in
+    0 | 1)
+        ;;
+    *)
+        _error_quit "当前 pgrep 不支持 -u/-x 选项，请安装 procps/procps-ng 完整版"
+        return $?
+        ;;
+    esac
+
+    pgrep -f "$probe" >/dev/null 2>&1
+    status=$?
+    case "$status" in
+    0 | 1)
+        return 0
+        ;;
+    *)
+        _error_quit "当前 pgrep 不支持 -f 选项，请安装 procps/procps-ng 完整版"
+        return $?
+        ;;
+    esac
+}
+
+_valid_unzip_support() {
+    unzip -Z 2>&1 | grep -qi 'zipinfo' && return 0
+
+    _error_quit "当前 unzip 不支持 Info-ZIP 的 unzip -Z；请安装完整 unzip/zipinfo（Alpine 可尝试 apk add unzip）"
+    return $?
+}
+
+_valid_install_support() {
+    local tmpdir
+
+    tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/clash-install-probe.XXXXXX") || {
+        _error_quit "无法创建 install 能力探测临时目录"
+        return $?
+    }
+    install -D -m 755 /dev/null "$tmpdir/a/b" >/dev/null 2>&1 || {
+        rm -rf "$tmpdir" 2>/dev/null || true
+        _error_quit "当前 install 不支持 -D -m 选项，请安装 coreutils 或等价工具"
+        return $?
+    }
+    rm -rf "$tmpdir" 2>/dev/null || true
 }
 
 _valid() {
@@ -561,11 +624,11 @@ _valid_zip() {
 }
 _unzip_zip() {
     _valid_zip "$ZIP_KERNEL" "$ZIP_YQ" "$ZIP_SUBCONVERTER" "$ZIP_UI"
-    /usr/bin/install -D <(gzip -dc "$ZIP_KERNEL") "$BIN_KERNEL" || return 1
+    install -D <(gzip -dc "$ZIP_KERNEL") "$BIN_KERNEL" || return 1
     _extract_tar_archive "$ZIP_YQ" "${BIN_BASE_DIR}" || return 1
-    /bin/mv -f "${BIN_BASE_DIR}"/yq_* "${BIN_BASE_DIR}/yq" || return 1
+    mv -f "${BIN_BASE_DIR}"/yq_* "${BIN_BASE_DIR}/yq" || return 1
     _extract_tar_archive "$ZIP_SUBCONVERTER" "$BIN_BASE_DIR" || return 1
-    /bin/cp "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG" || return 1
+    cp "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG" || return 1
     _extract_zip_archive "$ZIP_UI" "$RESOURCES_BASE_DIR" 2>/dev/null ||
         _extract_tar_archive "$ZIP_UI" "$RESOURCES_BASE_DIR" || return 1
     [ -x "$BIN_KERNEL" ] || return 1

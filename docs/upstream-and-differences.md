@@ -173,6 +173,12 @@ clashproxy mode silent
 - 不把 `tmux` / `nohup` 模式伪装成支持 Tun。
 - 不在 `clashproxy` 中修改桌面环境或系统级代理。
 
+## Linux 支持边界
+
+本项目只面向 Linux 服务器、远程开发机、个人虚拟机和 headless Linux（无桌面 Linux）环境，不把 Windows/macOS 当作目标平台。
+
+推荐目标是 Ubuntu、Debian、Fedora/RHEL、Arch、openSUSE 这类常见 GNU 用户态发行版。脚本依赖 Bash、`/proc`、`pgrep`、`flock`、`tar`、`gzip`、Info-ZIP `unzip -Z`、`curl`、`yq` 以及运行模式需要的 `tmux` / `systemctl` / `ip`。Alpine/BusyBox 或极简容器属于有限支持：需要先安装 Bash、procps/procps-ng、Info-ZIP unzip、coreutils 和 iproute2；如果 `/proc` 被 `hidepid` 或容器策略限制，进程识别、PID 校验和无损依赖更新保护可能无法可靠工作。
+
 ## 后续重写方向
 
 Shell 版本仍是第一版跟进版本。Bun + TypeScript 或 Rust / Go 重写可以降低字符串拼接、全局变量、隐式返回码、trap 和 quoting 带来的风险，但短期内 shell 版本更容易跟进上游机制，也更容易被现有用户直接审查和部署。

@@ -584,13 +584,13 @@ _normalize_sub_config() {
     local charset
     for charset in GB18030 GBK BIG5; do
         iconv -f "$charset" -t UTF-8 "$dest" -o "${dest}.utf8" 2>/dev/null && {
-            /bin/mv -f "${dest}.utf8" "$dest"
+            mv -f "${dest}.utf8" "$dest"
             _okcat '🔤' "订阅已从 $charset 转为 UTF-8"
             return 0
         }
     done
 
-    /usr/bin/rm -f "${dest}.utf8" 2>/dev/null
+    rm -f "${dest}.utf8" 2>/dev/null
     return 0
 }
 
@@ -723,14 +723,14 @@ _stop_convert() {
 
     exe=$(readlink -f "/proc/${pid}/exe" 2>/dev/null || true)
     [ "$exe" = "$BIN_SUBCONVERTER" ] || {
-        /usr/bin/rm -f "$BIN_SUBCONVERTER_PID"
+        rm -f "$BIN_SUBCONVERTER_PID"
         return 0
     }
 
     kill -TERM "$pid" 2>/dev/null || true
     sleep 0.2
     kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
-    /usr/bin/rm -f "$BIN_SUBCONVERTER_PID"
+    rm -f "$BIN_SUBCONVERTER_PID"
     return 0
 }
 

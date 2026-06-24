@@ -67,18 +67,18 @@ EOF
             _revoke_rc >/dev/null 2>&1 || true
             return 1
         }
-        /usr/bin/install -m 644 "$SCRIPT_CMD_FISH" "$fish_tmp" || {
-            /usr/bin/rm -f "$fish_tmp"
+        install -m 644 "$SCRIPT_CMD_FISH" "$fish_tmp" || {
+            rm -f "$fish_tmp"
             _revoke_rc >/dev/null 2>&1 || true
             return 1
         }
         sed -i "1iset -gx CLASHCTL_CMD_DIR $(_shell_quote "$CLASH_CMD_DIR")" "$fish_tmp" || {
-            /usr/bin/rm -f "$fish_tmp"
+            rm -f "$fish_tmp"
             _revoke_rc >/dev/null 2>&1 || true
             return 1
         }
-        /bin/mv -f "$fish_tmp" "$SHELL_RC_FISH" || {
-            /usr/bin/rm -f "$fish_tmp"
+        mv -f "$fish_tmp" "$SHELL_RC_FISH" || {
+            rm -f "$fish_tmp"
             _revoke_rc >/dev/null 2>&1 || true
             return 1
         }
@@ -94,6 +94,17 @@ EOF
     return 0
 }
 
+_copy_file_metadata() {
+    local source=$1 target=$2 mode owner
+
+    mode=$(stat -c '%a' "$source" 2>/dev/null || true)
+    [ -n "$mode" ] && chmod "$mode" "$target" 2>/dev/null || true
+
+    [ "$(id -u)" -eq 0 ] || return 0
+    owner=$(stat -c '%u:%g' "$source" 2>/dev/null || true)
+    [ -n "$owner" ] && chown "$owner" "$target" 2>/dev/null || true
+}
+
 _revoke_rc_file() {
     local rc_file=$1 source_clashctl=". $CLASH_CMD_DIR/clashctl.sh"
     [ -f "$rc_file" ] || return 0
@@ -107,8 +118,7 @@ _revoke_rc_file() {
     local rc_dir tmp_file
     rc_dir=$(dirname "$rc_target")
     tmp_file=$(mktemp "${rc_dir}/.clashctl-rc.XXXXXX") || return 1
-    chmod --reference="$rc_target" "$tmp_file" 2>/dev/null || true
-    chown --reference="$rc_target" "$tmp_file" 2>/dev/null || true
+    _copy_file_metadata "$rc_target" "$tmp_file"
 
     awk -v source="$source_clashctl" '
         /^# clashctl START/ {
@@ -137,7 +147,7 @@ _revoke_rc_file() {
                 printf "%s", block
             }
         }
-    ' "$rc_target" >"$tmp_file" && /bin/mv -f "$tmp_file" "$rc_target"
+    ' "$rc_target" >"$tmp_file" && mv -f "$tmp_file" "$rc_target"
 }
 
 _revoke_fish_rc_file() {

@@ -385,7 +385,7 @@ clashtun on
 clashtun status
 ```
 
-`clashtun status` 会检查两件事：Tun 网卡是否存在，以及系统提供 `resolvectl` 时 `systemd-resolved` 是否把 DNS scope、DNS server 和 `~.` 路由域切到 Tun 链路。外层 shell 只诊断这件事，不调用 `resolvectl revert` 清理状态；DNS 接管和清理由 mihomo 自己完成。若提示 DNS 未接管，先刷新真实 systemd unit：
+`clashtun status` 会检查两件事：Tun 网卡是否存在，以及本机 DNS 确实由 `systemd-resolved` 接管时，DNS scope、DNS server 和 `~.` 路由域是否切到 Tun 链路。外层 shell 只诊断这件事，不调用 `resolvectl revert` 清理状态；DNS 接管和清理由 mihomo 自己完成。若提示 DNS 未接管，先刷新真实 systemd unit：
 
 ```bash
 sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"

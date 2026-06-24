@@ -241,16 +241,16 @@ _rollback_legacy_config_files() {
     if [ "$config_migration_started" = true ]; then
         for plan in "${_legacy_config_plan[@]}"; do
             IFS='|' read -r action src dest <<<"$plan"
-            /usr/bin/rm -f "$src" "$dest"
+            rm -f "$src" "$dest"
         done
         while IFS= read -r file; do
             rel=${file#"$config_backup_dir"/}
-            /usr/bin/rm -rf "$target/$rel"
+            rm -rf "$target/$rel"
             mkdir -p "$target/$(dirname "$rel")"
             cp -a "$file" "$target/$rel"
         done < <(find "$config_backup_dir" -type f)
     fi
-    /usr/bin/rm -rf "$config_backup_dir"
+    rm -rf "$config_backup_dir"
     return "$status"
 }
 trap _rollback_legacy_config_files EXIT INT TERM
@@ -282,7 +282,7 @@ for plan in "${_legacy_config_plan[@]}"; do
     esac
 done
 config_migration_started=false
-/usr/bin/rm -rf "$config_backup_dir"
+rm -rf "$config_backup_dir"
 trap - EXIT INT TERM
 
 if [ -n "$restart_mode" ]; then

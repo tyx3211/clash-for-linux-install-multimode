@@ -15,7 +15,7 @@ download_tmp=
 
 _die() {
     printf '📢 %s\n' "$1" >&2
-    [ -n "${download_tmp:-}" ] && /usr/bin/rm -rf "$download_tmp"
+    [ -n "${download_tmp:-}" ] && rm -rf "$download_tmp"
     exit 1
 }
 
@@ -240,26 +240,26 @@ _download_remote_source() {
 
     printf '⏳ 正在下载项目源码：%s@%s\n' "$UPDATE_REPO" "$UPDATE_REF" >&2
     if ! curl --fail --location --show-error --silent -o "$archive" "$url"; then
-        /usr/bin/rm -rf "$download_tmp"
+        rm -rf "$download_tmp"
         download_tmp=
         _die "项目源码下载失败：$url"
     fi
 
     if ! _tar_archive_is_safe "$archive"; then
-        /usr/bin/rm -rf "$download_tmp"
+        rm -rf "$download_tmp"
         download_tmp=
         _die "项目源码归档包含不安全路径或特殊文件：$url"
     fi
 
     if ! tar -xzf "$archive" -C "$download_tmp"; then
-        /usr/bin/rm -rf "$download_tmp"
+        rm -rf "$download_tmp"
         download_tmp=
         _die "项目源码归档解压失败：$url"
     fi
 
     archive_root=$(find "$download_tmp" -mindepth 2 -maxdepth 2 -type f -name update.sh -print -quit)
     [ -n "$archive_root" ] || {
-        /usr/bin/rm -rf "$download_tmp"
+        rm -rf "$download_tmp"
         download_tmp=
         _die "项目源码归档中没有找到 update.sh"
     }
@@ -595,14 +595,14 @@ _rollback_update() {
     if [ "${rollback_needed:-false}" = true ]; then
         local path
         for path in "${backup_paths[@]}"; do
-            /usr/bin/rm -rf "$target/$path"
+            rm -rf "$target/$path"
             [ -e "$backup_dir/$path" ] || continue
             mkdir -p "$target/$(dirname "$path")"
             cp -a "$backup_dir/$path" "$target/$path"
         done
     fi
-    [ -n "${staging_dir:-}" ] && /usr/bin/rm -rf "$staging_dir"
-    [ -n "${download_tmp:-}" ] && /usr/bin/rm -rf "$download_tmp"
+    [ -n "${staging_dir:-}" ] && rm -rf "$staging_dir"
+    [ -n "${download_tmp:-}" ] && rm -rf "$download_tmp"
     return "$status"
 }
 trap _rollback_update EXIT INT TERM
@@ -618,14 +618,14 @@ rollback_needed=true
 tar -C "$SOURCE_DIR" -cf - "${managed_paths[@]}" | tar -C "$staging_dir" -xf -
 
 for path in "${managed_paths[@]}"; do
-    /usr/bin/rm -rf "$target/$path"
+    rm -rf "$target/$path"
     mkdir -p "$target/$(dirname "$path")"
     cp -a "$staging_dir/$path" "$target/$path"
 done
 
 for path in "${obsolete_paths[@]}"; do
     [ -e "$target/$path" ] || [ -L "$target/$path" ] || continue
-    /usr/bin/rm -rf "$target/$path"
+    rm -rf "$target/$path"
 done
 
 printf '%s\n' 'clash-for-linux-install-multimode' >"$marker"
@@ -701,8 +701,8 @@ fi
 
 rollback_needed=false
 trap - EXIT INT TERM
-/usr/bin/rm -rf "$staging_dir"
-[ -n "${download_tmp:-}" ] && /usr/bin/rm -rf "$download_tmp"
+rm -rf "$staging_dir"
+[ -n "${download_tmp:-}" ] && rm -rf "$download_tmp"
 
 [ "$legacy" = true ] && printf '📢 已按历史 nosudo-tmux 安装目录执行原地迁移，旧配置已保留。\n'
 printf '✨ 项目脚本已更新，用户配置和订阅状态已保留：%s\n' "$target"

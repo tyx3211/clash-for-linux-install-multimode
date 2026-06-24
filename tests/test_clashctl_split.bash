@@ -39,7 +39,7 @@ assert_file_contains "$CLASHCTL_SH" '_clashctl_source_lib "\$THIS_SCRIPT_DIR/\.\
 missing_lib_tmp=$(make_test_tmpdir "clash-missing-lib")
 missing_lib_repo="$missing_lib_tmp/repo"
 cp -a "$TEST_ROOT/." "$missing_lib_repo"
-/usr/bin/rm -f "$missing_lib_repo/scripts/lib/proxy.sh"
+rm -f "$missing_lib_repo/scripts/lib/proxy.sh"
 (
     set +e
     . "$missing_lib_repo/scripts/cmd/clashctl.sh" 2>"$missing_lib_tmp/source.err"
@@ -59,7 +59,7 @@ grep -q 'proxy.sh' "$missing_lib_tmp/source.err" ||
 missing_common_tmp=$(make_test_tmpdir "clash-missing-common")
 missing_common_repo="$missing_common_tmp/repo"
 cp -a "$TEST_ROOT/." "$missing_common_repo"
-/usr/bin/rm -f "$missing_common_repo/scripts/cmd/common.sh"
+rm -f "$missing_common_repo/scripts/cmd/common.sh"
 (
     set +e
     . "$missing_common_repo/scripts/cmd/clashctl.sh" 2>"$missing_common_tmp/source.err"
@@ -79,7 +79,7 @@ grep -q 'common.sh' "$missing_common_tmp/source.err" ||
 missing_env_tmp=$(make_test_tmpdir "clash-missing-env")
 missing_env_repo="$missing_env_tmp/repo"
 cp -a "$TEST_ROOT/." "$missing_env_repo"
-/usr/bin/rm -f "$missing_env_repo/.env"
+rm -f "$missing_env_repo/.env"
 bash -c '
     . "$1/scripts/cmd/clashctl.sh" 2>"$2/source.err"
     source_status=$?

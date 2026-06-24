@@ -33,7 +33,7 @@ _restore_tun_mixin() {
     local restart_after_restore=$2
 
     [ -f "$backup" ] || return 0
-    /bin/mv -f "$backup" "$CLASH_CONFIG_MIXIN"
+    mv -f "$backup" "$CLASH_CONFIG_MIXIN"
     _merge_config || return 1
     if [ "$restart_after_restore" = true ]; then
         _clash_service_stop systemd >/dev/null 2>&1 || true
@@ -99,6 +99,31 @@ _tun_resolved_available() {
     command -v resolvectl >/dev/null
 }
 
+_tun_resolved_service_active() {
+    command -v systemctl >/dev/null || return 1
+    systemctl is-active --quiet systemd-resolved.service 2>/dev/null
+}
+
+_tun_resolv_conf_uses_resolved() {
+    local resolv_conf=${CLASHCTL_RESOLV_CONF:-/etc/resolv.conf} target
+
+    [ -e "$resolv_conf" ] || return 1
+    target=$(readlink "$resolv_conf" 2>/dev/null || true)
+    case "$target" in
+    *systemd/resolve/* | *stub-resolv.conf* | *systemd-resolved*)
+        return 0
+        ;;
+    esac
+
+    grep -Eq 'systemd-resolved|127\.0\.0\.53|stub-resolv\.conf' "$resolv_conf" 2>/dev/null
+}
+
+_tun_resolved_required() {
+    _tun_resolved_available || return 1
+    _tun_resolved_service_active || return 1
+    _tun_resolv_conf_uses_resolved
+}
+
 _tun_resolved_status_output() {
     local device=$1
     resolvectl status "$device" 2>/dev/null
@@ -124,6 +149,7 @@ _tun_resolved_wait() {
     local device=$1 deadline
 
     _tun_resolved_available || return 0
+    _tun_resolved_required || return 0
     deadline=$((SECONDS + 5))
     while [ "$SECONDS" -le "$deadline" ]; do
         _tun_resolved_healthy "$device" && return 0
@@ -146,6 +172,11 @@ _tun_resolved_report() {
 
     _tun_resolved_healthy "$device" && {
         _okcat "systemd-resolved：${device} DNS 已接管"
+        return 0
+    }
+
+    _tun_resolved_required || {
+        _okcat "systemd-resolved：当前系统未由 systemd-resolved 接管，跳过 DNS 接管检查"
         return 0
     }
 
@@ -215,7 +246,7 @@ _tunon_impl() {
                 _restore_tun_mixin "$backup" "$was_active"
                 return 1
             }
-            /usr/bin/rm -f "$backup"
+            rm -f "$backup"
             _okcat "Tun 模式已开启"
             return 0
         }
@@ -227,7 +258,7 @@ _tunon_impl() {
         _restore_tun_mixin "$backup" "$was_active"
         return 1
     }
-    /usr/bin/rm -f "$backup"
+    rm -f "$backup"
     _okcat "Tun 模式已开启"
 }
 
@@ -266,7 +297,7 @@ _tunoff_impl() {
             return 1
         }
     fi
-    /usr/bin/rm -f "$backup"
+    rm -f "$backup"
     _okcat "Tun 模式已关闭"
 }
 

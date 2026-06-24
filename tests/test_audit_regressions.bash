@@ -528,6 +528,15 @@ assert_file_contains "$SERVICE_RUNTIME_SH" '_proc_cmdline_has_arg' \
 assert_file_contains "$SERVICE_RUNTIME_SH" '_proc_starttime' \
     "nohup pid matching should record process starttime to reduce PID reuse risk"
 
+assert_file_contains "$TEST_ROOT/docs/development-testing.md" 'Alpine/BusyBox' \
+    "developer testing docs should document Linux distribution portability boundaries"
+
+assert_file_contains "$UNINSTALL_SH" '^PATH=/usr/sbin:/usr/bin:/sbin:/bin$' \
+    "root-capable uninstall entry should reset PATH before running system utilities"
+
+assert_file_contains "$TEST_ROOT/scripts/tools/refresh-systemd-service.sh" '^PATH=/usr/sbin:/usr/bin:/sbin:/bin$' \
+    "root-only systemd refresh tool should reset PATH before running system utilities"
+
 assert_file_contains "$PROXY_SH" '_clash_service_is_active.*\|\| return 0|_clash_service_is_active' \
     "watch_proxy should check that the managed kernel is active before exporting proxy variables"
 

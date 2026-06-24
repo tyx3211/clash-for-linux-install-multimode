@@ -124,13 +124,13 @@ _clashdeps_clear_zip_cache() {
     for item in "$@"; do
         case "$item" in
         mihomo)
-            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'mihomo*' -exec /usr/bin/rm -f {} +
+            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'mihomo*' -exec rm -f {} +
             ;;
         yq)
-            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'yq*' -exec /usr/bin/rm -f {} +
+            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'yq*' -exec rm -f {} +
             ;;
         subconverter)
-            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'subconverter*' -exec /usr/bin/rm -f {} +
+            find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name 'subconverter*' -exec rm -f {} +
             ;;
         esac
     done
@@ -244,7 +244,7 @@ _clashdeps_backup_file() {
     local src=$1 dst=$2 marker=$3
 
     if [ -e "$src" ]; then
-        /bin/cp -p "$src" "$dst"
+        cp -p "$src" "$dst"
         return $?
     fi
 
@@ -268,7 +268,7 @@ _clashdeps_restore_file() {
     local dst=$1 backup=$2 marker=$3
 
     if [ -e "$backup" ]; then
-        /bin/cp -p "$backup" "$dst" 2>/dev/null || {
+        cp -p "$backup" "$dst" 2>/dev/null || {
             _failcat "依赖更新回滚失败：$dst"
             return 1
         }
@@ -276,7 +276,7 @@ _clashdeps_restore_file() {
     fi
 
     if [ -e "$CLASHDEPS_BACKUP/missing/$marker" ]; then
-        /usr/bin/rm -f "$dst" 2>/dev/null || {
+        rm -f "$dst" 2>/dev/null || {
             _failcat "依赖更新回滚失败：$dst"
             return 1
         }
@@ -306,7 +306,7 @@ _clashdeps_install_mihomo() {
     gzip -dc "$ZIP_MIHOMO" >"$tmp" || return 1
     chmod +x "$tmp" || return 1
     _clashdeps_reject_if_active || return 1
-    /bin/mv -f "$tmp" "$BIN_BASE_DIR/mihomo" || return 1
+    mv -f "$tmp" "$BIN_BASE_DIR/mihomo" || return 1
 }
 
 _clashdeps_install_yq() {
@@ -321,7 +321,7 @@ _clashdeps_install_yq() {
     }
     chmod +x "$candidate" || return 1
     _clashdeps_reject_if_active || return 1
-    /bin/mv -f "$candidate" "$BIN_YQ" || return 1
+    mv -f "$candidate" "$BIN_YQ" || return 1
 }
 
 _clashdeps_install_subconverter() {
@@ -337,13 +337,13 @@ _clashdeps_install_subconverter() {
     _clashdeps_reject_if_active || return 1
     _clashdeps_reject_if_subconverter_active || return 1
     mkdir -p "$BIN_SUBCONVERTER_DIR" || return 1
-    /bin/mv -f "$dir/subconverter/subconverter" "$BIN_SUBCONVERTER" || return 1
+    mv -f "$dir/subconverter/subconverter" "$BIN_SUBCONVERTER" || return 1
     chmod +x "$BIN_SUBCONVERTER" || return 1
     if [ -f "$dir/subconverter/pref.example.yml" ]; then
-        /bin/cp -f "$dir/subconverter/pref.example.yml" "$BIN_SUBCONVERTER_DIR/pref.example.yml" || return 1
+        cp -f "$dir/subconverter/pref.example.yml" "$BIN_SUBCONVERTER_DIR/pref.example.yml" || return 1
     fi
     if [ ! -f "$BIN_SUBCONVERTER_CONFIG" ] && [ -f "$BIN_SUBCONVERTER_DIR/pref.example.yml" ]; then
-        /bin/cp -f "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG" || return 1
+        cp -f "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG" || return 1
     fi
 }
 
@@ -436,7 +436,7 @@ _clashdeps_main() {
     _clashdeps_validate_managed_paths || return 1
     mkdir -p "$ZIP_BASE_DIR" "$BIN_BASE_DIR" || return 1
     CLASHDEPS_TMP=$(mktemp -d "${CLASH_RESOURCES_DIR}/.deps-update.XXXXXX") || return 1
-    trap '/usr/bin/rm -rf "$CLASHDEPS_TMP" 2>/dev/null || true' EXIT
+    trap 'rm -rf "$CLASHDEPS_TMP" 2>/dev/null || true' EXIT
 
     current_mihomo=$(_clashdeps_state_version mihomo 2>/dev/null || printf '%s\n' "${VERSION_MIHOMO:-}")
     current_yq=$(_clashdeps_state_version yq 2>/dev/null || printf '%s\n' "${VERSION_YQ:-}")

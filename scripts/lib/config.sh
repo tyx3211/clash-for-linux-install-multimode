@@ -180,17 +180,17 @@ _merge_config() {
         .proxies = (.proxies + $extra | unique)
 	      )
 	    ' "$CLASH_CONFIG_BASE" "$CLASH_CONFIG_MIXIN" >"$runtime_tmp" || {
-        /usr/bin/rm -f "$runtime_tmp"
+        rm -f "$runtime_tmp"
         _failcat "验证失败：请检查 Mixin 配置"
         return 1
     }
     _valid_config "$runtime_tmp" || {
-        /usr/bin/rm -f "$runtime_tmp"
+        rm -f "$runtime_tmp"
         _failcat "验证失败：请检查 Mixin 配置"
         return 1
     }
-    /bin/mv -f "$runtime_tmp" "$CLASH_CONFIG_RUNTIME" || {
-        /usr/bin/rm -f "$runtime_tmp"
+    mv -f "$runtime_tmp" "$CLASH_CONFIG_RUNTIME" || {
+        rm -f "$runtime_tmp"
         _failcat "运行时配置写入失败：$CLASH_CONFIG_RUNTIME"
         return 1
     }
@@ -201,9 +201,9 @@ _restore_runtime_after_restart_failure() {
     local backup=$1 mode=$2 was_active=$3
 
     if [ -f "$backup" ]; then
-        /bin/mv -f "$backup" "$CLASH_CONFIG_RUNTIME"
+        mv -f "$backup" "$CLASH_CONFIG_RUNTIME"
     else
-        /usr/bin/rm -f "$CLASH_CONFIG_RUNTIME"
+        rm -f "$CLASH_CONFIG_RUNTIME"
     fi
     _clashctl_chown_runtime_file || return 1
 
@@ -238,7 +238,7 @@ _merge_config_restart_impl() {
     [ -f "$CLASH_CONFIG_RUNTIME" ] && cat "$CLASH_CONFIG_RUNTIME" >"$runtime_restart_backup"
 
     _merge_config || {
-        /usr/bin/rm -f "$runtime_restart_backup"
+        rm -f "$runtime_restart_backup"
         return 1
     }
     _ensure_ext_addr_available "$allowed_ext_port" || {
@@ -270,7 +270,7 @@ _merge_config_restart_impl() {
     local deadline=$((SECONDS + 5))
     while [ "$SECONDS" -le "$deadline" ]; do
         _clash_api_health_check --mode "$mode" >&/dev/null && {
-            /usr/bin/rm -f "$runtime_restart_backup"
+            rm -f "$runtime_restart_backup"
             return 0
         }
         sleep 0.2
@@ -315,17 +315,17 @@ EOF
         local backup="${CLASH_CONFIG_MIXIN}.secret.bak.$$"
         cat "$CLASH_CONFIG_MIXIN" >"$backup" || return 1
         CLASHCTL_SECRET=$1 "$BIN_YQ" -i '.secret = strenv(CLASHCTL_SECRET)' "$CLASH_CONFIG_MIXIN" || {
-            /bin/mv -f "$backup" "$CLASH_CONFIG_MIXIN"
+            mv -f "$backup" "$CLASH_CONFIG_MIXIN"
             _failcat "密钥更新失败，请重新输入"
             return 1
         }
         _merge_config_restart || {
-            /bin/mv -f "$backup" "$CLASH_CONFIG_MIXIN"
+            mv -f "$backup" "$CLASH_CONFIG_MIXIN"
             _merge_config >/dev/null 2>&1 || true
             _failcat "密钥未生效，请检查配置或内核状态"
             return 1
         }
-        /usr/bin/rm -f "$backup"
+        rm -f "$backup"
         _okcat "密钥更新成功，已重启生效"
         ;;
     *)

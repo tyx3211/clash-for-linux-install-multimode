@@ -121,7 +121,7 @@ EOF
         _error_quit "无法创建订阅目录：$CLASH_PROFILES_DIR"
         return 1
     }
-    /bin/mv -f "$CLASH_CONFIG_TEMP" "$profile_path" || {
+    mv -f "$CLASH_CONFIG_TEMP" "$profile_path" || {
         _error_quit "订阅文件保存失败：$profile_path"
         return 1
     }
@@ -135,7 +135,7 @@ EOF
               "url": env(PROFILE_URL)
             }]
         ' "$CLASH_PROFILES_META" || {
-        /usr/bin/rm -f "$profile_path"
+        rm -f "$profile_path"
         _error_quit "订阅元信息写入失败：$CLASH_PROFILES_META"
         return 1
     }
@@ -160,18 +160,18 @@ _sub_del() {
     use=$("$BIN_YQ" '.use // ""' "$CLASH_PROFILES_META")
     [ "$use" = "$id" ] && _error_quit "删除失败：订阅 $id 正在使用中，请先切换订阅"
     local meta_backup="${CLASH_PROFILES_META}.del.bak.$$"
-    /bin/cp -f "$CLASH_PROFILES_META" "$meta_backup" || return 1
+    cp -f "$CLASH_PROFILES_META" "$meta_backup" || return 1
     PROFILE_ID=$id "$BIN_YQ" -i 'del(.profiles[] | select((.id | tostring) == env(PROFILE_ID)))' "$CLASH_PROFILES_META" || {
-        /bin/mv -f "$meta_backup" "$CLASH_PROFILES_META"
+        mv -f "$meta_backup" "$CLASH_PROFILES_META"
         _error_quit "订阅元信息更新失败：$CLASH_PROFILES_META"
         return 1
     }
-    /usr/bin/rm -f "$profile_path" || {
-        /bin/mv -f "$meta_backup" "$CLASH_PROFILES_META"
+    rm -f "$profile_path" || {
+        mv -f "$meta_backup" "$CLASH_PROFILES_META"
         _error_quit "订阅文件删除失败：$profile_path"
         return 1
     }
-    /usr/bin/rm -f "$meta_backup"
+    rm -f "$meta_backup"
     _logging_sub "➖ 已删除订阅：[$id] $url"
     _okcat '🎉' "订阅已删除：[$id] $url"
 }
@@ -194,31 +194,31 @@ _sub_use() {
     local base_backup="${CLASH_CONFIG_BASE}.sub-use.bak.$$" had_base=false
     local meta_backup="${CLASH_PROFILES_META}.use.bak.$$"
     [ -f "$CLASH_CONFIG_BASE" ] && {
-        /bin/cp -f "$CLASH_CONFIG_BASE" "$base_backup" || return 1
+        cp -f "$CLASH_CONFIG_BASE" "$base_backup" || return 1
         had_base=true
     }
-    /bin/cp -f "$CLASH_PROFILES_META" "$meta_backup" || return 1
+    cp -f "$CLASH_PROFILES_META" "$meta_backup" || return 1
     "$BIN_YQ" -i ".use = $id" "$CLASH_PROFILES_META" || {
-        /bin/mv -f "$meta_backup" "$CLASH_PROFILES_META"
+        mv -f "$meta_backup" "$CLASH_PROFILES_META"
         _error_quit "订阅元信息写入失败：$CLASH_PROFILES_META"
         return 1
     }
     _replace_file_from_source "$profile_path" "$CLASH_CONFIG_BASE" || {
-        /bin/mv -f "$meta_backup" "$CLASH_PROFILES_META"
-        /usr/bin/rm -f "$base_backup"
+        mv -f "$meta_backup" "$CLASH_PROFILES_META"
+        rm -f "$base_backup"
         return 1
     }
     _merge_config_restart || {
         if [ "$had_base" = true ]; then
-            /bin/mv -f "$base_backup" "$CLASH_CONFIG_BASE"
+            mv -f "$base_backup" "$CLASH_CONFIG_BASE"
         else
-            /usr/bin/rm -f "$CLASH_CONFIG_BASE" "$base_backup"
+            rm -f "$CLASH_CONFIG_BASE" "$base_backup"
         fi
-        /bin/mv -f "$meta_backup" "$CLASH_PROFILES_META"
+        mv -f "$meta_backup" "$CLASH_PROFILES_META"
         _merge_config >/dev/null 2>&1 || true
         return 1
     }
-    /usr/bin/rm -f "$base_backup" "$meta_backup"
+    rm -f "$base_backup" "$meta_backup"
     _logging_sub "🔥 订阅已切换为：[$id] $url"
     _okcat '🔥' '订阅已生效'
 }
@@ -243,11 +243,11 @@ _replace_file_from_source() {
     mkdir -p "$dir" || return 1
     tmp=$(mktemp "${dir}/.replace.XXXXXX") || return 1
     cat "$source" >"$tmp" || {
-        /usr/bin/rm -f "$tmp"
+        rm -f "$tmp"
         return 1
     }
-    /bin/mv -f "$tmp" "$dest" || {
-        /usr/bin/rm -f "$tmp"
+    mv -f "$tmp" "$dest" || {
+        rm -f "$tmp"
         return 1
     }
 }
@@ -334,25 +334,25 @@ _sub_update() {
     }
     local profile_backup="${profile_path}.update.bak.$$" had_profile=false use
     [ -f "$profile_path" ] && {
-        /bin/cp -f "$profile_path" "$profile_backup" || return 1
+        cp -f "$profile_path" "$profile_backup" || return 1
         had_profile=true
     }
     _replace_file_from_source "$CLASH_CONFIG_TEMP" "$profile_path" || return 1
     use=$("$BIN_YQ" '.use // ""' "$CLASH_PROFILES_META")
     [ "$use" = "$id" ] && {
         clashsub use "$use" && {
-            /usr/bin/rm -f "$profile_backup"
+            rm -f "$profile_backup"
             _logging_sub "✅ 订阅更新成功：[$id] $url"
             return 0
         }
         if [ "$had_profile" = true ]; then
-            /bin/mv -f "$profile_backup" "$profile_path"
+            mv -f "$profile_backup" "$profile_path"
         else
-            /usr/bin/rm -f "$profile_path" "$profile_backup"
+            rm -f "$profile_path" "$profile_backup"
         fi
         return 1
     }
-    /usr/bin/rm -f "$profile_backup"
+    rm -f "$profile_backup"
     _logging_sub "✅ 订阅更新成功：[$id] $url"
     _okcat '订阅已更新'
 }

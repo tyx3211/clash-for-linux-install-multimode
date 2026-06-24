@@ -15,7 +15,7 @@ _cleanup_test_tmpdir() {
         "" | "/" | "$HOME" | "$HOME/" | . | .. | ./* | ../*)
             ;;
         "$TEST_TMP_ROOT"/clash-test-run.*)
-            /usr/bin/rm -rf "$TEST_RUN_TMP_DIR" 2>/dev/null || true
+            rm -rf "$TEST_RUN_TMP_DIR" 2>/dev/null || true
             ;;
         esac
     fi
@@ -25,7 +25,7 @@ _cleanup_test_tmpdir() {
 
 _init_test_tmpdir() {
     mkdir -p "$TEST_TMP_ROOT"
-    TEST_RUN_TMP_DIR=$(mktemp -d "$TEST_TMP_ROOT/clash-test-run.XXXXXX") || exit 1
+    TEST_RUN_TMP_DIR=$(mktemp -d "$TEST_TMP_ROOT/clash-test-run.XXXXXXXXXX") || exit 1
     trap _cleanup_test_tmpdir EXIT INT TERM
 }
 
@@ -101,7 +101,7 @@ make_test_tmpdir() {
     local base=${TEST_RUN_TMP_DIR:-$TEST_TMP_ROOT}
 
     mkdir -p "$base"
-    mktemp -d "${base}/${name}.XXXXXX"
+    mktemp -d "${base}/${name}.XXXXXXXXXX"
 }
 
 write_test_install_yq() {

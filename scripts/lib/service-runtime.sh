@@ -82,16 +82,16 @@ _write_service_state() {
             .bin_kernel = strenv(SERVICE_STATE_BIN_KERNEL) |
             .config_runtime = strenv(SERVICE_STATE_CONFIG_RUNTIME)
         ' >"$tmp" || {
-        /usr/bin/rm -f "$tmp"
+        rm -f "$tmp"
         return 1
     }
     if [ -n "$pid" ]; then
         SERVICE_STATE_PID=$pid "$BIN_YQ" -i '.pid = (strenv(SERVICE_STATE_PID) | tonumber)' "$tmp" || {
-            /usr/bin/rm -f "$tmp"
+            rm -f "$tmp"
             return 1
         }
     fi
-    /bin/mv -f "$tmp" "$CLASH_SERVICE_STATE"
+    mv -f "$tmp" "$CLASH_SERVICE_STATE"
 }
 
 _with_service_lock() {
@@ -123,7 +123,7 @@ _with_service_lock() {
 }
 
 _clear_service_state() {
-    /usr/bin/rm -f "$CLASH_SERVICE_STATE"
+    rm -f "$CLASH_SERVICE_STATE"
 }
 
 _clash_install_id() {
@@ -341,13 +341,13 @@ _clash_adapter_nohup_stop() {
     pid=$(_read_nohup_pid 2>/dev/null || true)
     starttime=$(_read_nohup_starttime 2>/dev/null || true)
     _pid_matches_current_kernel "$pid" "$starttime" || {
-        /usr/bin/rm -f "$FILE_PID"
+        rm -f "$FILE_PID"
         return 0
     }
     kill -TERM "$pid" 2>/dev/null || true
     sleep 0.2
     _pid_matches_current_kernel "$pid" "$starttime" && kill -KILL "$pid" 2>/dev/null || true
-    /usr/bin/rm -f "$FILE_PID"
+    rm -f "$FILE_PID"
 }
 
 _clash_adapter_nohup_is_active() {

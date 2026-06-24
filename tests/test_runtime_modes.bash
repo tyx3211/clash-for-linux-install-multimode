@@ -1185,6 +1185,7 @@ tun_resolver_status_tmp=$(make_test_tmpdir "clash-tun-resolver-status")
 
     BIN_YQ="$tun_resolver_status_tmp/yq"
     CLASH_CONFIG_RUNTIME="$tun_resolver_status_tmp/runtime.yaml"
+    CLASHCTL_RESOLV_CONF="$tun_resolver_status_tmp/resolv.conf"
     cat >"$BIN_YQ" <<'EOF'
 #!/usr/bin/env bash
 if [ "${1:-}" = '.tun.device // ""' ]; then
@@ -1195,10 +1196,14 @@ exit 7
 EOF
     chmod +x "$BIN_YQ"
     printf '{}\n' >"$CLASH_CONFIG_RUNTIME"
+    printf 'nameserver 127.0.0.53\n' >"$CLASHCTL_RESOLV_CONF"
 
     _require_tun_runtime() { return 0; }
     ip() {
         [ "$1" = link ] && [ "$2" = show ] && [ "$3" = Mihomo ]
+    }
+    systemctl() {
+        [ "$1" = is-active ] && [ "$2" = --quiet ] && [ "$3" = systemd-resolved.service ]
     }
     resolvectl() {
         printf 'Link 6 (Mihomo)\n'
@@ -1214,6 +1219,49 @@ EOF
         fail "tunstatus should fail when the Tun link exists but systemd-resolved has not claimed DNS"
     grep -q 'DNS 未接管' "$tun_resolver_status_tmp/err" ||
         fail "tunstatus should explain that systemd-resolved DNS is not claimed"
+)
+
+tun_resolver_optional_tmp=$(make_test_tmpdir "clash-tun-resolver-optional")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    BIN_YQ="$tun_resolver_optional_tmp/yq"
+    CLASH_CONFIG_RUNTIME="$tun_resolver_optional_tmp/runtime.yaml"
+    CLASHCTL_RESOLV_CONF="$tun_resolver_optional_tmp/resolv.conf"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = '.tun.device // ""' ]; then
+    printf 'Mihomo\n'
+    exit 0
+fi
+exit 7
+EOF
+    chmod +x "$BIN_YQ"
+    printf '{}\n' >"$CLASH_CONFIG_RUNTIME"
+    printf 'nameserver 1.1.1.1\n' >"$CLASHCTL_RESOLV_CONF"
+
+    _require_tun_runtime() { return 0; }
+    ip() {
+        [ "$1" = link ] && [ "$2" = show ] && [ "$3" = Mihomo ]
+    }
+    systemctl() {
+        return 3
+    }
+    resolvectl() {
+        printf 'Link 6 (Mihomo)\n'
+        printf '    Current Scopes: none\n'
+        printf '         Protocols: -DefaultRoute -LLMNR -mDNS\n'
+    }
+    _okcat() { printf '%s\n' "$*" >>"$tun_resolver_optional_tmp/out"; }
+    _failcat() { printf '%s\n' "$*" >>"$tun_resolver_optional_tmp/err"; return 1; }
+
+    tunstatus
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "tunstatus should not fail only because resolvectl exists on a non-resolved system"
+    grep -q '跳过 DNS 接管检查' "$tun_resolver_optional_tmp/out" ||
+        fail "tunstatus should explain skipped resolved checks on non-resolved systems"
 )
 
 tunoff_does_not_manage_resolved_tmp=$(make_test_tmpdir "clash-tunoff-no-resolved-revert")

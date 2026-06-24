@@ -181,7 +181,7 @@ clashrestart
 
 测试默认在 `/tmp/tyx/clash-test-run.*` 下创建临时运行目录，退出时自动清理。在当前测试 shell 中 source `clashctl.sh` 的用例，应默认落到测试沙箱安装目录，不能读取或操作开发者真实的 `~/clashctl`、真实 `mihomo` 进程或真实 `tmux` 会话。只有专门验证 `.env` / install-state 覆盖语义的用例，才应显式清理沙箱变量后测试解析行为。
 
-和上游同步、systemd/Tun root 运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
+和上游同步、systemd/Tun root 运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证入口 `bash tests/run_all.bash`、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
 
 ## 🚀 安装
 
@@ -509,7 +509,7 @@ $ clashtun off
 - 这不是安全降权边界；systemd/Tun 路线应按 root 级整机网络能力理解，只建议用于单用户机器、个人虚拟机或明确授权的专用机器。
 - systemd/Tun 的 root 服务会执行安装目录里的内核二进制和运行时配置，因此安装目录 owner 等价于这个 root 服务的管理员；不要把不可信用户可写目录注册成 systemd/Tun 安装目录。
 - 运行时的 `clashrestart --mode systemd`、`clashoff --mode systemd` 和 `clashtun on/off` 会使用非交互 sudo；如果当前用户执行 `sudo -n systemctl status mihomo` 会要求密码，这条路线也会失败。
-- 开启 Tun 时会修改 `config/mixin.yaml` 中的 `tun.enable`，重新合并运行时配置并重启内核，并检查 `systemd-resolved` 是否把 DNS 接管到 Tun 链路。旧安装目录如果还没有 `config/`，会继续使用兼容路径 `resources/mixin.yaml`。
+- 开启 Tun 时会修改 `config/mixin.yaml` 中的 `tun.enable`，重新合并运行时配置并重启内核；当本机 DNS 确实由 `systemd-resolved` 接管时，还会检查 DNS 是否切到 Tun 链路。旧安装目录如果还没有 `config/`，会继续使用兼容路径 `resources/mixin.yaml`。
 - 共享机默认不建议启用 Tun，除非我们明确知道该机器允许普通用户通过 sudo 管理这个服务。
 
 ## 🔄 更新项目脚本

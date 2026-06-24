@@ -204,7 +204,7 @@ _install_service() {
         sed_kernel_name=$(_preflight_escape_sed_repl "$KERNEL_NAME")
         sed_kernel_desc=$(_preflight_escape_sed_repl "$kernel_desc")
         sed_run_as_user=$(_preflight_escape_sed_repl "${service_run_as_user:-}")
-        /usr/bin/install -D -m 755 "$service_src" "$service_target" || return 1
+        install -D -m 755 "$service_src" "$service_target" || return 1
         CLASH_INSTALL_SERVICE_WRITTEN=true
         if declare -p service_add >/dev/null 2>&1 && ((${#service_add[@]})); then
             "${service_add[@]}" || return 1

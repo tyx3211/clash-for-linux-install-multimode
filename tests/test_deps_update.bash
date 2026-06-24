@@ -623,16 +623,22 @@ grep -q 'clashrestart' "$restart_reject_tmp/err" ||
 
 subconverter_active_tmp=$(make_test_tmpdir "clash-deps-update-subconverter-active")
 subconverter_active_install="$subconverter_active_tmp/install"
-mkdir -p "$subconverter_active_install/bin/subconverter" "$subconverter_active_install/resources/zip"
-cp -a "$TEST_ROOT/scripts" "$subconverter_active_install/scripts"
-write_test_install_yq "$subconverter_active_install"
-cp /bin/sleep "$subconverter_active_install/bin/subconverter/subconverter"
-chmod +x "$subconverter_active_install/bin/subconverter/subconverter"
-"$subconverter_active_install/bin/subconverter/subconverter" 30 &
-active_sub_pid=$!
-printf '%s\n' "$active_sub_pid" >"$subconverter_active_install/bin/subconverter/subconverter.pid"
 (
     set +e
+    mkdir -p "$subconverter_active_install/bin/subconverter" "$subconverter_active_install/resources/zip"
+    cp -a "$TEST_ROOT/scripts" "$subconverter_active_install/scripts"
+    write_test_install_yq "$subconverter_active_install"
+    cp "${BASH:-/bin/bash}" "$subconverter_active_install/bin/subconverter/subconverter"
+    chmod +x "$subconverter_active_install/bin/subconverter/subconverter"
+    "$subconverter_active_install/bin/subconverter/subconverter" -c 'cleanup() { local pids; pids=$(jobs -p); [ -n "$pids" ] && kill $pids 2>/dev/null || true; }; trap cleanup EXIT; trap "cleanup; exit 0" INT TERM; while :; do sleep 30 & wait "$!" 2>/dev/null || true; done' &
+    active_sub_pid=$!
+    cleanup_active_subconverter() {
+        kill "$active_sub_pid" 2>/dev/null || true
+        wait "$active_sub_pid" 2>/dev/null || true
+    }
+    trap cleanup_active_subconverter EXIT INT TERM
+    printf '%s\n' "$active_sub_pid" >"$subconverter_active_install/bin/subconverter/subconverter.pid"
+
     . "$CLASHCTL_SH"
     CLASH_BASE_DIR="$subconverter_active_install"
     CLASH_RESOURCES_DIR="$subconverter_active_install/resources"
@@ -649,13 +655,14 @@ printf '%s\n' "$active_sub_pid" >"$subconverter_active_install/bin/subconverter/
     }
     clashdeps subconverter --no-gh-proxy >/dev/null 2>"$subconverter_active_tmp/err"
     [ "$?" -ne 0 ]
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "dependency update should reject active subconverter instead of stopping it"
+    kill -0 "$active_sub_pid" 2>/dev/null ||
+        fail "dependency update should not stop an active subconverter process"
+    [ ! -e "$subconverter_active_tmp/download" ] ||
+        fail "dependency update should reject active subconverter before downloading"
 ) || fail "dependency update should reject active subconverter instead of stopping it"
-kill -0 "$active_sub_pid" 2>/dev/null ||
-    fail "dependency update should not stop an active subconverter process"
-[ ! -e "$subconverter_active_tmp/download" ] ||
-    fail "dependency update should reject active subconverter before downloading"
-kill "$active_sub_pid" 2>/dev/null || true
-wait "$active_sub_pid" 2>/dev/null || true
 
 if command -v zsh >/dev/null 2>&1; then
     zsh_tmp=$(make_test_tmpdir "clash-deps-update-zsh")

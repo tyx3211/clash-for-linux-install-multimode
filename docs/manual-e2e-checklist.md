@@ -140,7 +140,7 @@ clashoff
 - 当前活跃模式不是 `systemd` 时，`clashtun on` 会拒绝，并提示先执行 `clashrestart --mode systemd`。
 - `clashtun` 不会静默切换托管模式。
 - 真实 systemd unit 不应包含旧模型残留：`User=`、`CapabilityBoundingSet=`、`AmbientCapabilities=`、`LimitNPROC=`、`LimitNOFILE=`。
-- `clashtun on` 成功后，`clashtun status` 不只显示 Tun 设备存在，还应显示 `systemd-resolved` 已接管 DNS。
+- 在本机 DNS 由 `systemd-resolved` 接管的环境中，`clashtun on` 成功后，`clashtun status` 不只显示 Tun 设备存在，还应显示 `systemd-resolved` 已接管 DNS。
 - 在 Ubuntu / systemd-resolved 环境中，`resolvectl status Mihomo` 或 `resolvectl status Meta` 应能看到 `Current Scopes: DNS`、`DNS Servers` 和 `DNS Domain: ~.`。如果只看到 `Current Scopes: none`，说明 DNS 没有被 Tun 链路接管，需要刷新 systemd unit 并重新 `clashrestart --mode systemd`。
 - `clashtun off` 后，外层 shell 不会调用 `resolvectl revert`；应观察 mihomo 自行清理后的状态：Tun 网卡消失，`resolvectl status Mihomo` / `resolvectl status Meta` 不再显示该链路持有 `DNS` scope 和 `~.`。
 

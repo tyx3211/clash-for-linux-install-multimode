@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
 THIS_UNINSTALL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 CLASHCTL_ERROR_EXIT=1
 
@@ -137,7 +138,7 @@ command -v crontab >&/dev/null && {
 [ ! -d "$CLASH_BASE_REAL/config/.git" ] ||
     printf '📢 检测到配置目录 Git 仓库，将随卸载删除：%s/config/.git\n' "$CLASH_BASE_REAL" >&2
 
-/usr/bin/rm -rf "$CLASH_BASE_REAL"
+rm -rf "$CLASH_BASE_REAL"
 
 echo '✨' '已卸载，相关配置已清除'
 printf '📢 如果之前执行过 root rc 同步，请从源码仓库执行：sudo bash scripts/tools/unsync-root-rc.sh --cmd-dir "%s/scripts/cmd"\n' "$CLASH_BASE_DIR"

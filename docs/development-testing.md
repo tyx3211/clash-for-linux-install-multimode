@@ -2,6 +2,8 @@
 
 自动化测试默认把临时目录建在 `/tmp/tyx/clash-test-run.*` 下，并在测试进程退出时删除整棵运行目录。`test_update_self.bash` 会复制源码树，单次测试会短暂占用较多磁盘；正常退出后不应留下 `clash-test-run.*` 或旧式 `clash-*` 目录。
 
+当前测试套件只面向 Linux，不承诺 macOS 或 BSD 直接运行。默认验证环境是 Ubuntu/Debian/Fedora/RHEL/Arch/openSUSE 这类 GNU 用户态发行版；Alpine/BusyBox 属于有限支持目标，需要补齐 Bash、procps/procps-ng、Info-ZIP unzip、coreutils 和 iproute2 等工具后再运行。测试默认依赖 Bash、`/proc`、`flock`、`pgrep`、`systemctl`、`resolvectl`、`ip` 等 Linux 运维设施；但测试夹具不能依赖会随发行版或 coreutils 版本变化的细节，例如把 `/bin/sleep` 重命名后仍能作为 sleep 运行。
+
 测试 helper 会为当前测试进程创建 `sandbox-install` 安装根，并预置 `CLASH_BASE_DIR`、`KERNEL_NAME`、`INIT_TYPE` 和 `CLASH_INSTALLED_INIT_TYPE` 这几个 shell 变量。这样 source `scripts/cmd/clashctl.sh` 的测试默认只会看到测试沙箱，不会沿用源码仓库 `.env` 里的真实安装路径，也不会把真实 `~/clashctl` 下的内核进程当成测试对象。
 
 这几个变量只在当前测试 shell 中生效，helper 会先去掉它们的导出属性，避免调用者原本导出的真实安装路径继续传给子进程；因此 `bash install.sh`、`bash update.sh`、`bash migrate.sh` 这类子进程测试仍会走自己的参数和默认值解析。若某个用例专门验证 `.env` 或 install-state 的覆盖语义，可以在该用例子 shell 内调用 `unset_test_install_identity`，再 source 对应脚本。
@@ -23,7 +25,13 @@ TEST_TMP_BASE=/tmp/tyx/my-test-run bash tests/test_update_self.bash
 常用全量验证：
 
 ```bash
-bash -n install.sh update.sh migrate.sh uninstall.sh scripts/cmd/*.sh scripts/lib/*.sh scripts/install/*.sh scripts/preflight.sh tests/*.bash tests/lib/*.bash
-for t in tests/test_*.bash; do bash "$t"; done
-git diff --check
+bash tests/run_all.bash
+```
+
+`tests/run_all.bash` 会先切到仓库根目录，因此测试逻辑不依赖调用时的当前目录。只要 shell 能定位到这个脚本即可；在仓库根目录内可以直接运行，仓库外请使用脚本绝对路径。不带参数时运行全部 `tests/test_*.bash`，传参时参数按仓库根目录相对路径或绝对路径解析，例如：
+
+```bash
+bash tests/run_all.bash tests/test_deps_update.bash
+bash /path/to/clash-for-linux-install-multimode/tests/run_all.bash tests/test_deps_update.bash
+cd tests && bash run_all.bash test_deps_update.bash
 ```

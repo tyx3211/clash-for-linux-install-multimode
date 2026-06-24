@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 THIS_ROOT_RC_TOOL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) ||
     exit 1
@@ -54,7 +55,7 @@ target_rc=$(_root_rc_resolve_target_file "$(_root_rc_target_file)")
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/clash-root-rc.XXXXXX") ||
     _root_rc_die "无法创建临时目录"
-trap '/usr/bin/rm -rf "$work_dir"' EXIT
+trap 'rm -rf "$work_dir"' EXIT
 stripped_file="$work_dir/root-stripped"
 
 removed=true

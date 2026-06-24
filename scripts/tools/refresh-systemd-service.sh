@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 _die() {
     printf '📢 %s\n' "$1" >&2
@@ -170,6 +171,9 @@ done
 
 _require_root_or_test
 
+command -v install >/dev/null 2>&1 ||
+    _die "缺少 install 命令，请先安装 coreutils 或等价工具"
+
 install_dir=$(_install_dir)
 [ -f "$install_dir/.clashctl-install-root" ] ||
     _die "当前目录不像 clashctl 安装目录：$install_dir"
@@ -197,7 +201,7 @@ _registered_unit_belongs_to_current_install "$kernel" "$expected_exec" ||
 
 tmp=$(mktemp "${TMPDIR:-/tmp}/clash-systemd-unit.XXXXXX.service") ||
     _die "无法创建临时 unit 文件"
-trap '/usr/bin/rm -f "$tmp"' EXIT
+trap 'rm -f "$tmp"' EXIT
 
 sed \
     -e "s#placeholder_kernel_desc#$(_escape_sed_repl "$kernel")#g" \
@@ -212,7 +216,7 @@ if [ "${CLASHCTL_REFRESH_SYSTEMD_SKIP_VERIFY:-}" != 1 ] &&
         _die "systemd unit 校验失败"
 fi
 
-/usr/bin/install -D -m 755 "$tmp" "$target" ||
+install -D -m 755 "$tmp" "$target" ||
     _die "systemd unit 写入失败：$target"
 
 if [ "${CLASHCTL_REFRESH_SYSTEMD_SKIP_DAEMON_RELOAD:-}" != 1 ]; then

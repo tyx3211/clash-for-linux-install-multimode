@@ -19,10 +19,10 @@ assert_file_contains "$INSTALL_SH" 'THIS_INSTALL_DIR=' \
 assert_file_contains "$INSTALL_SH" 'cd "\$THIS_INSTALL_DIR"' \
     "install should run source-relative operations from the script directory"
 
-assert_file_not_contains "$INSTALL_SH" '/bin/cp -rf \\. ' \
+assert_file_not_contains "$INSTALL_SH" 'cp -rf \\. ' \
     "install should not copy the caller current directory"
 
-assert_file_not_contains "$INSTALL_SH" '/bin/cp -rf "\$THIS_INSTALL_DIR"/\. "\$CLASH_BASE_DIR"' \
+assert_file_not_contains "$INSTALL_SH" 'cp -rf "\$THIS_INSTALL_DIR"/\. "\$CLASH_BASE_DIR"' \
     "install should not copy the whole source checkout including .git"
 
 assert_file_contains "$INSTALL_SH" '_copy_install_payload\(\)' \
@@ -32,6 +32,7 @@ install_payload_tmp=$(make_test_tmpdir "clash-install-payload")
 install_payload_source="$install_payload_tmp/source"
 install_payload_target="$install_payload_tmp/target"
 cp -a "$TEST_ROOT/." "$install_payload_source"
+rm -rf "$install_payload_source/.git"
 mkdir -p "$install_payload_source/.git" "$install_payload_source/.github/workflows" "$install_payload_target"
 printf 'git metadata\n' >"$install_payload_source/.git/config"
 printf 'ci metadata\n' >"$install_payload_source/.github/workflows/ci.yml"
@@ -58,8 +59,23 @@ assert_file_contains "$SYSTEMD_SH" 'placeholder_run_as_user' \
 assert_file_not_contains "$SERVICE_RENDER_SH" 'User=\$SUDO_USER|User="\$SUDO_USER"' \
     "regular sudo systemd install should not render User=<sudo user>; systemd/Tun runs as root"
 
-assert_file_contains "$SERVICE_RENDER_SH" '/usr/bin/install -D -m 755' \
+assert_file_contains "$SERVICE_RENDER_SH" 'install -D -m 755' \
     "rendered service files should keep read permission for init managers"
+
+assert_file_contains "$PREFLIGHT_SH" '_valid_unzip_support' \
+    "install preflight should verify Info-ZIP style unzip support before archive extraction"
+
+assert_file_contains "$PREFLIGHT_SH" '_valid_install_support' \
+    "install preflight should verify install -D support before writing binaries or service files"
+
+assert_file_not_contains "$PREFLIGHT_SH" '"pkill"' \
+    "install preflight should not require pkill when runtime code scopes process shutdown by pid"
+
+assert_file_not_contains "$TEST_ROOT/scripts/install/rc.sh" '--reference' \
+    "rc atomic writes should not rely on GNU-only chmod/chown --reference"
+
+assert_file_not_contains "$TEST_ROOT/scripts/tools/root-rc-common.sh" '--reference' \
+    "root rc atomic writes should not rely on GNU-only chmod/chown --reference"
 
 assert_file_contains "$PREFLIGHT_SH" '_validate_install_path' \
     "install should explicitly reject paths that shell templates cannot safely support"

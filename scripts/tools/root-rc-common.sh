@@ -196,6 +196,17 @@ _root_rc_remove_block_to_stdout() {
     ' "$target_rc"
 }
 
+_root_rc_copy_file_metadata() {
+    local source=$1 target=$2 mode owner
+
+    mode=$(stat -c '%a' "$source" 2>/dev/null || true)
+    [ -n "$mode" ] && chmod "$mode" "$target" 2>/dev/null || true
+
+    [ "$(id -u)" -eq 0 ] || return 0
+    owner=$(stat -c '%u:%g' "$source" 2>/dev/null || true)
+    [ -n "$owner" ] && chown "$owner" "$target" 2>/dev/null || true
+}
+
 _root_rc_write_atomic() {
     local target_rc=$1 content_file=$2 target_dir tmp_file
 
@@ -208,15 +219,14 @@ _root_rc_write_atomic() {
 
     tmp_file=$(mktemp "$target_dir/.clashctl-root-rc.XXXXXX") ||
         _root_rc_die "无法创建 root rc 临时文件：$target_dir"
-    chmod --reference="$target_rc" "$tmp_file" 2>/dev/null || true
-    chown --reference="$target_rc" "$tmp_file" 2>/dev/null || true
+    _root_rc_copy_file_metadata "$target_rc" "$tmp_file"
 
     cat "$content_file" >"$tmp_file" || {
-        /usr/bin/rm -f "$tmp_file"
+        rm -f "$tmp_file"
         _root_rc_die "无法写入 root rc 临时文件：$tmp_file"
     }
-    /bin/mv -f "$tmp_file" "$target_rc" || {
-        /usr/bin/rm -f "$tmp_file"
+    mv -f "$tmp_file" "$target_rc" || {
+        rm -f "$tmp_file"
         _root_rc_die "无法替换 root rc：$target_rc"
     }
 }
