@@ -62,23 +62,28 @@ root 安装 + 系统服务 = root 运行代理内核
 sudo 注册系统级 service（系统服务）
 /etc/systemd/system/<kernel>.service
 User=<sudo 调用用户>
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=~
+AmbientCapabilities=~
 ```
 
-也就是说，本项目没有使用 `systemd --user`。service（系统服务）仍然由系统级 systemd 管理，但 mihomo / clash 进程以安装时的普通用户身份运行。systemd 只额外授予 Tun 和底层网络能力需要的 capability（Linux 能力）。
+也就是说，本项目没有使用 `systemd --user`。service（系统服务）仍然由系统级 systemd 管理，但 mihomo / clash 进程以安装时的普通用户身份运行。systemd 会给这个普通用户进程授予当前系统可用的完整 ambient capability（环境能力集合），使它在 Tun 和底层网络操作上接近 root 运行模型。
+
+这不是安全沙箱，也不是严格降权边界。full capability 可能包含 `CAP_DAC_OVERRIDE`、`CAP_SYS_ADMIN`、`CAP_SETUID`、`CAP_SETGID`、`CAP_SYS_PTRACE` 等高权限能力；如果服务进程被攻陷，攻击面应按接近 root 权限理解。这里保留的主要是不让安装目录、配置路径和文件归属漂移到 root，而不是把内核权限压到明显低于 root。
 
 这个设计的收益：
 
 - 运行时可以在 `tmux`、`nohup`、`systemd` 之间切换，三种模式共享同一个普通用户安装目录。
-- systemd/Tun 场景下，内核进程不是完整 root 进程，权限面比 root 运行更收敛。
+- systemd/Tun 场景下，文件默认仍按安装用户身份读写，配置目录不容易因为 sudo 启动漂移成 `/root/clashctl`。
 - 不依赖共享机上经常不可用的 `systemd --user`。
 
 这个设计的代价：
 
+- full capability 授权已经接近 root 等级，不再是最小权限模型。它只适合单用户机器、个人虚拟机或明确授权的专用机器；共享机默认仍应使用 `tmux` / `nohup`。
 - sudo 安装或 root 排障过程中生成的运行时文件，必须保证安装用户可读写。
 - 不能让 root 环境下的 `~` 漂移到 `/root/clashctl`；sudo 安装默认仍应落到 sudo 调用用户的安装目录。
 - 运行时 systemd 操作使用 `sudo -n systemctl`，没有免密 sudo 时必须明确失败，不能卡住等待密码。
 - 公开的 `clashstatus` 在 systemd 模式下应展示 `systemctl status`，和上游的状态命令心智保持一致；内部启动、重启、UI 和升级流程需要确认本机控制口可用时，应调用 `_clash_api_health_check`，不要复用 public status。
+- systemd unit 不能设置较低的 `LimitNPROC`。本项目的服务进程以安装用户身份运行，`LimitNPROC` 会按该用户已有进程/线程总量计数；共享机或桌面环境里很容易让 Go runtime 创建线程失败。
 
 因此维护时必须保留这些权限修复点：
 

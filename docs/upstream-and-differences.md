@@ -6,7 +6,7 @@
 
 本项目继续使用 MIT License。`LICENSE` 保留上游原始版权声明，并追加本项目后续改造的版权声明；安装过程中下载或使用的 `mihomo`、`yq`、`subconverter` 等组件，分别遵循各自上游项目的许可证。
 
-如果是在维护代码，而不是只想理解用户可见差异，请同时阅读 [开发者设计说明](developer-design-notes.md)。那篇文档记录了 systemd 降权运行、多模式托管和配置状态边界这些不应随上游同步被误改的不变量。
+如果是在维护代码，而不是只想理解用户可见差异，请同时阅读 [开发者设计说明](developer-design-notes.md)。那篇文档记录了 systemd 用户身份运行、多模式托管和配置状态边界这些不应随上游同步被误改的不变量。
 
 ## 当前维护线
 
@@ -39,7 +39,7 @@ GitHub 远程分支策略：
 - 订阅转换、下载超时、subconverter 仓库来源可配置。
 - Tun 配置使用较新的 DNS 与 fake-ip 默认建议。
 - `clashctl` 子命令拆分、帮助输出、配置合并和安全校验的改进。
-- systemd 服务只授予网络相关能力，而不是无差别扩大权限。
+- systemd 服务保持安装用户身份运行，但 systemd/Tun 路线授予接近 root 的完整 capability，避免网络功能反复踩权限边界。
 
 ## 本项目刻意保留的差异
 
@@ -87,11 +87,11 @@ clashrestart --mode systemd
 clashtun on
 ```
 
-通过 sudo 安装时，systemd 服务会以 sudo 调用用户身份运行，并由 systemd 授予 `CAP_NET_ADMIN`、`CAP_NET_RAW`、`CAP_NET_BIND_SERVICE`。
+通过 sudo 安装时，systemd 服务会以 sudo 调用用户身份运行，并由 systemd 授予当前系统可用的完整 ambient capability（环境能力集合）。这接近 root 运行模型，只是进程的 UNIX 用户身份仍是安装用户。
 
 运行时的 start/stop/restart 使用 `sudo -n systemctl`，不会停下来等待输入 sudo 密码。如果当前用户没有免密 sudo，systemd/Tun 路线会明确失败。Tun 可能影响整机流量路径，因此这条路线更适合单用户机器、个人虚拟机或明确授权的专用机器；共享机默认不建议开启。
 
-### systemd 降权运行
+### systemd 用户身份运行
 
 上游当前主线的 systemd 模板不写 `User=`，因此系统服务默认以 root 运行 mihomo / clash。上游还会在不是 root 时退回 `nohup`，所以它的 systemd 心智模型更接近：
 
@@ -106,22 +106,22 @@ systemd 模式 = root 安装 + root 运行代理内核
 sudo systemctl 管理系统服务
 /etc/systemd/system/mihomo.service
 User=<sudo 调用用户>
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=~
+AmbientCapabilities=~
 ```
 
-也就是说，本项目仍然使用系统级 systemd 服务，不依赖 `systemctl --user`；只是服务进程不以完整 root 身份运行，而是以安装时的普通用户身份运行。systemd 负责把 Tun 和网络代理可能需要的有限能力授予这个进程：
+也就是说，本项目仍然使用系统级 systemd 服务，不依赖 `systemctl --user`；只是服务进程的 UNIX 用户身份是安装时的普通用户。为了避免 Tun、路由、透明代理、DNS、低端口或后续 mihomo 能力需求反复踩权限边界，systemd 模板默认保留完整 capability bounding set（能力边界集合），并把完整 ambient capability（环境能力集合）授予进程。
 
-- `CAP_NET_ADMIN`：允许网络管理操作，例如接口配置、路由表修改、透明代理相关网络操作。
-- `CAP_NET_RAW`：允许 raw / packet socket，部分底层网络和透明代理场景会用到。
-- `CAP_NET_BIND_SERVICE`：允许绑定 1024 以下端口；默认 `7890`、`7891`、`9090` 不依赖它，但用户若改成低端口会需要。
+需要明确的是，这不是安全沙箱，也不是严格降权边界。full capability 可能包含 `CAP_DAC_OVERRIDE`、`CAP_SYS_ADMIN`、`CAP_SETUID`、`CAP_SETGID`、`CAP_SYS_PTRACE` 等高权限能力；如果该服务进程被攻陷，攻击面应按接近 root 权限理解。这里保留下来的主要边界是“进程默认用户身份、配置路径和文件归属仍属于安装用户”，不是“内核权限明显低于 root”。
 
 这个设计的收益是：
 
 - systemd、tmux、nohup 三种模式都围绕同一个普通用户的安装目录和配置目录工作，运行时切换不容易把文件写成 root-only。
-- 代理内核不是完整 root 进程，权限面比上游 root systemd 路线更小。
-- 仍然保留 Tun 所需的网络能力，不依赖共享机上常被禁用的 `systemd --user`。
+- systemd 服务不会因为 `sudo` 下的 `~` 漂移到 `/root/clashctl`，配置和日志仍围绕安装用户目录。
+- capability 授权接近 root 运行模型，减少后续因为缺少某个具体 capability 而导致 Tun 或网络功能回归。
+- 不依赖共享机上常被禁用的 `systemd --user`。
 
-它的代价是：sudo 安装阶段生成或替换的运行时文件，必须重新归还给 sudo 调用用户。否则 systemd 服务虽然能启动，但以普通用户身份运行的 mihomo / clash 会读不到 `resources/runtime.yaml`、订阅配置或日志目录。本项目在安装收尾会递归修复安装目录所有权；运行时配置合并后只修复刚生成的 `resources/runtime.yaml`，避免在普通命令里递归改动整个目录。
+它的代价是：这不再是最小权限 systemd 模型。虽然进程用户仍是安装用户，但完整 capability 已经接近 root 权限，因此这条路线只建议用于单用户机器、个人虚拟机或明确授权的专用机器。sudo 安装阶段生成或替换的运行时文件，也必须重新归还给 sudo 调用用户。否则 systemd 服务虽然能启动，但以普通用户身份运行的 mihomo / clash 会读不到 `resources/runtime.yaml`、订阅配置或日志目录。本项目在安装收尾会递归修复安装目录所有权；运行时配置合并后只修复刚生成的 `resources/runtime.yaml`，避免在普通命令里递归改动整个目录。
 
 ### Sidecar 配置分离
 

@@ -100,6 +100,24 @@ sudo journalctl -u mihomo -n 120 --no-pager
 
 这里仍然是系统级 systemd 服务，不是 `systemd --user`。
 
+`clashctl update-self` 会刷新安装目录里的 service 模板，但不会自动改已经注册到 `/etc/systemd/system/mihomo.service` 的真实 systemd unit。更新后如果要让 systemd/Tun 路线立刻使用新模板，建议在源码仓库根目录重新注册一次：
+
+```bash
+sudo bash install.sh --init systemd
+sudo systemctl daemon-reload
+clashrestart --mode systemd
+```
+
+如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本已经移除这个模板限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻重新注册时，可以先手工同步已有 unit：
+
+```bash
+sudo sed -i '/^LimitNPROC=/d' /etc/systemd/system/mihomo.service
+sudo sed -i 's/^CapabilityBoundingSet=.*/CapabilityBoundingSet=~/' /etc/systemd/system/mihomo.service
+sudo sed -i 's/^AmbientCapabilities=.*/AmbientCapabilities=~/' /etc/systemd/system/mihomo.service
+sudo systemctl daemon-reload
+sudo systemctl restart mihomo
+```
+
 如果日志里出现 `resources/runtime.yaml: permission denied`，说明 sudo 安装或排障过程中把运行时文件写成了错误属主。确认 `~/clashctl` 是自己的安装目录后，执行：
 
 ```bash
@@ -319,7 +337,7 @@ sudo bash "$HOME/clashctl/uninstall.sh"
 
 运行时管理 systemd 服务需要 root 或免密 sudo。可以先用 `sudo -n systemctl status mihomo` 判断当前用户是否具备非交互 sudo 能力；如果该命令要求输入密码，`clashrestart --mode systemd` 和 `clashtun on` 也会失败。
 
-这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机上开启 Tun 可能影响整机流量路径，不建议作为默认方案。
+这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机上开启 Tun 可能影响整机流量路径，不建议作为默认方案。通过 sudo 安装时，systemd 服务进程仍以安装用户身份运行，但会获得接近 root 的完整 capability（能力），用来覆盖 Tun、路由、透明代理和 DNS 等网络功能需要的权限。
 sudo 安装只是提权写入系统服务；默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。
 
 先注册系统服务：

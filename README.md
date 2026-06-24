@@ -150,7 +150,7 @@ clashctl update-self
 
 - 本项目以 `INIT_TYPE=tmux` 为默认运行托管模式，请先确保系统已安装 `tmux`。
 - 如需纯用户态但不想依赖 `tmux`，可以在运行时使用 `clashon --mode nohup`。
-- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。与上游 root 运行 systemd 服务的权衡见 [上游致谢与项目差异：systemd 降权运行](docs/upstream-and-differences.md#systemd-降权运行).
+- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。systemd 模式会让进程以安装用户身份运行，但授予接近 root 的完整 capability（能力），取舍见 [上游致谢与项目差异：systemd 用户身份运行](docs/upstream-and-differences.md#systemd-用户身份运行).
 - 新安装的 `external-controller` 默认绑定 `127.0.0.1:9090`，远程访问面板请优先使用 SSH 端口转发。旧安装无损更新后不会自动改已有端口，实际地址以 `clashui` 输出为准。
 - `clashproxy on` / `clashproxy off` 只影响当前 shell 的环境变量，不会改系统级代理。
 - `clashproxy status` 会显示当前终端实际环境变量，并在它们和当前运行配置不一致时提示刷新；只有 `no_proxy` / `NO_PROXY` 不算代理开启。
@@ -160,7 +160,7 @@ clashctl update-self
 
 测试默认在 `/tmp/tyx/clash-test-run.*` 下创建临时运行目录，退出时自动清理。在当前测试 shell 中 source `clashctl.sh` 的用例，应默认落到测试沙箱安装目录，不能读取或操作开发者真实的 `~/clashctl`、真实 `mihomo` 进程或真实 `tmux` 会话。只有专门验证 `.env` / install-state 覆盖语义的用例，才应显式清理沙箱变量后测试解析行为。
 
-和上游同步、systemd 降权运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
+和上游同步、systemd 用户身份运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
 
 ## 🚀 安装
 
@@ -483,7 +483,8 @@ $ clashtun on
 $ clashtun off
 ```
 
-- `systemd` 注册会使用 root 或 sudo 写入系统服务；通过 sudo 安装时，服务进程会以 sudo 调用用户身份运行，并由 systemd 授予 Tun 所需网络能力。
+- `systemd` 注册会使用 root 或 sudo 写入系统服务；通过 sudo 安装时，服务进程会以 sudo 调用用户身份运行，并由 systemd 授予接近 root 的完整 capability（能力），以减少 Tun 和网络功能的权限回归。
+- 这不是安全降权边界；systemd/Tun 路线应按接近 root 权限理解，只建议用于单用户机器、个人虚拟机或明确授权的专用机器。
 - 运行时的 `clashrestart --mode systemd`、`clashoff --mode systemd` 和 `clashtun on/off` 会使用非交互 sudo；如果当前用户执行 `sudo -n systemctl status mihomo` 会要求密码，这条路线也会失败。
 - 开启 Tun 时会修改 `config/mixin.yaml` 中的 `tun.enable`，重新合并运行时配置并重启内核。旧安装目录如果还没有 `config/`，会继续使用兼容路径 `resources/mixin.yaml`。
 - 共享机默认不建议启用 Tun，除非我们明确知道该机器允许普通用户通过 sudo 管理这个服务。

@@ -104,6 +104,8 @@ git status
 
 旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些旧路径文件也会原样保留。
 
+如果使用 systemd/Tun 路线，`update-self` 只会刷新安装目录里的 service 模板，不会自动改 `/etc/systemd/system/mihomo.service` 或 `/etc/systemd/system/clash.service` 中已经注册的真实 unit。需要让 systemd unit 使用新模板时，请重新执行 `sudo bash install.sh --init systemd`，或按 [快速上手：安装末尾失败](quickstart.md#安装末尾失败) 中的手工同步命令处理。
+
 这意味着配置目录中的 `.git` 会被完整保留。项目更新不会自动提交配置变更，也不会重写用户配置仓库。
 
 ## 是否要脱敏

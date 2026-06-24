@@ -10,6 +10,7 @@ PREFLIGHT_SH="$TEST_ROOT/scripts/preflight.sh"
 SERVICE_RENDER_SH="$TEST_ROOT/scripts/install/service-render.sh"
 CLASHCTL_SH="$TEST_ROOT/scripts/cmd/clashctl.sh"
 TUN_SH="$TEST_ROOT/scripts/lib/tun.sh"
+SYSTEMD_SH="$TEST_ROOT/scripts/init/systemd.sh"
 
 assert_file_contains "$ENV_FILE" '^INIT_TYPE=tmux$' \
     "tmux should remain the default init mode"
@@ -22,6 +23,38 @@ assert_file_contains "$SERVICE_RENDER_SH" 'nohup\)' \
 
 assert_file_contains "$SERVICE_RENDER_SH" 'systemd\)' \
     "_detect_init should support explicit systemd mode"
+
+assert_file_not_contains "$SYSTEMD_SH" '^LimitNPROC=' \
+    "systemd unit should not cap per-user process/thread count when running mihomo as the install user"
+
+assert_file_contains "$SYSTEMD_SH" '^CapabilityBoundingSet=~$' \
+    "systemd unit should keep the full capability bounding set for user-owned systemd mode"
+
+assert_file_contains "$SYSTEMD_SH" '^AmbientCapabilities=~$' \
+    "systemd unit should grant full ambient capabilities while keeping User=<install user>"
+
+systemd_render_tmp=$(make_test_tmpdir "clash-systemd-render")
+systemd_rendered="$systemd_render_tmp/mihomo.service"
+sed \
+    -e 's#placeholder_kernel_desc#mihomo#' \
+    -e 's#placeholder_run_as_user#User=william#' \
+    -e 's#placeholder_cmd_full#/home/william/clashctl/bin/mihomo -d /home/william/clashctl/resources -f /home/william/clashctl/resources/runtime.yaml#' \
+    "$SYSTEMD_SH" >"$systemd_rendered"
+
+assert_file_contains "$systemd_rendered" '^User=william$' \
+    "rendered systemd unit should run as the sudo invoking user"
+
+assert_file_contains "$systemd_rendered" '^CapabilityBoundingSet=~$' \
+    "rendered systemd unit should keep the full capability bounding set"
+
+assert_file_contains "$systemd_rendered" '^AmbientCapabilities=~$' \
+    "rendered systemd unit should grant full ambient capabilities"
+
+assert_file_not_contains "$systemd_rendered" '^LimitNPROC=' \
+    "rendered systemd unit should not cap the install user's process/thread count"
+
+assert_file_not_contains "$systemd_rendered" 'placeholder_' \
+    "rendered systemd unit should not retain placeholders"
 
 assert_file_contains "$PREFLIGHT_SH" '--init=' \
     "_parse_args should accept --init=<mode>"

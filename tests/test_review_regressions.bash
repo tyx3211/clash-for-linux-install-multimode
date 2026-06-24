@@ -114,11 +114,11 @@ latest_version_proxy_tmp=$(make_test_tmpdir "clash-latest-version-proxy")
 grep -q 'https://gh-proxy.org/https://api.github.com/repos/mikefarah/yq/releases/latest' "$latest_version_proxy_tmp/curl.args" ||
     fail "latest release tag resolution should honor URL_GH_PROXY"
 
-assert_file_contains "$SYSTEMD_SH" 'CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE' \
-    "systemd service should keep only network-related capabilities"
+assert_file_contains "$SYSTEMD_SH" '^CapabilityBoundingSet=~$' \
+    "systemd service should keep the full capability bounding set in user-owned systemd mode"
 
-assert_file_not_contains "$SYSTEMD_SH" 'CAP_SYS_PTRACE|CAP_DAC_OVERRIDE|CAP_DAC_READ_SEARCH|CAP_SYS_TIME' \
-    "systemd service should not grant unrelated broad capabilities"
+assert_file_contains "$SYSTEMD_SH" '^AmbientCapabilities=~$' \
+    "systemd service should grant full ambient capabilities while still rendering User=<install user>"
 
 assert_file_contains "$SUBSCRIPTION_SH" '_download_config "\$CLASH_CONFIG_TEMP" "\$url" \\|\\|' \
     "clashsub add should stop immediately when subscription download fails"

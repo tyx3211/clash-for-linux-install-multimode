@@ -110,10 +110,12 @@ sudo 模式：
 sudo bash install.sh --init systemd
 ```
 
-适合需要 Tun 的机器。通过 sudo 安装时，服务文件由 root 写入系统目录，实际服务进程以 sudo 调用用户身份运行。
+适合需要 Tun 的机器。通过 sudo 安装时，服务文件由 root 写入系统目录，实际服务进程以 sudo 调用用户身份运行；systemd 会授予这个进程接近 root 的完整 capability（能力），减少 Tun、路由、透明代理和 DNS 相关功能的权限回归。
 默认安装目录仍是 sudo 调用用户的 `~/clashctl`，脚本会把 root 环境下展开出来的 `/root/clashctl` 归一化回普通用户目录。
 
 运行时启动、停止和重启 systemd 服务会走 `sudo -n systemctl`。这意味着执行命令的用户需要是 root，或者已经拥有免密 sudo 权限；脚本不会停下来等待输入 sudo 密码。
+
+因为 full capability 授权已经接近 root 权限，这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机默认仍应使用 `tmux` / `nohup`。
 
 `clashstatus` 在 systemd 路线下会展示 `systemctl --no-pager --full status <内核名>`，便于直接看到 systemd 视角的 active / failed / inactive 状态；`tmux` / `nohup` 路线仍以托管进程和本机 API 健康检查为主。启动、重启、面板地址和内核升级这些内部流程会单独检查 `/version` API，不把 systemd 的 active 状态当作 API 可用。
 
