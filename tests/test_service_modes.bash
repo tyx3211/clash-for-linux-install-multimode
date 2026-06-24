@@ -109,6 +109,9 @@ assert_file_not_contains "$refresh_target" '^Limit[A-Z]' \
 assert_file_not_contains "$refresh_target" 'placeholder_' \
     "systemd refresh tool should not leave placeholders in the unit"
 
+[ "$(stat -c '%a' "$refresh_target")" = 644 ] ||
+    fail "systemd refresh tool should write unit files as 644 instead of executable"
+
 assert_file_contains "$PREFLIGHT_SH" '--init=' \
     "_parse_args should accept --init=<mode>"
 

@@ -59,8 +59,8 @@ assert_file_contains "$SYSTEMD_SH" 'placeholder_run_as_user' \
 assert_file_not_contains "$SERVICE_RENDER_SH" 'User=\$SUDO_USER|User="\$SUDO_USER"' \
     "regular sudo systemd install should not render User=<sudo user>; systemd/Tun runs as root"
 
-assert_file_contains "$SERVICE_RENDER_SH" 'install -D -m 755' \
-    "rendered service files should keep read permission for init managers"
+assert_file_contains "$SERVICE_RENDER_SH" 'install -D -m 644' \
+    "rendered systemd unit files should be readable but not executable"
 
 assert_file_contains "$PREFLIGHT_SH" '_valid_unzip_support' \
     "install preflight should verify Info-ZIP style unzip support before archive extraction"

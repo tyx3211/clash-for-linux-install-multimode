@@ -216,7 +216,7 @@ if [ "${CLASHCTL_REFRESH_SYSTEMD_SKIP_VERIFY:-}" != 1 ] &&
         _die "systemd unit 校验失败"
 fi
 
-install -D -m 755 "$tmp" "$target" ||
+install -D -m 644 "$tmp" "$target" ||
     _die "systemd unit 写入失败：$target"
 
 if [ "${CLASHCTL_REFRESH_SYSTEMD_SKIP_DAEMON_RELOAD:-}" != 1 ]; then
