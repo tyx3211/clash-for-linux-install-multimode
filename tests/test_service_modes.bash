@@ -11,6 +11,10 @@ SERVICE_RENDER_SH="$TEST_ROOT/scripts/install/service-render.sh"
 CLASHCTL_SH="$TEST_ROOT/scripts/cmd/clashctl.sh"
 TUN_SH="$TEST_ROOT/scripts/lib/tun.sh"
 SYSTEMD_SH="$TEST_ROOT/scripts/init/systemd.sh"
+REFRESH_SYSTEMD_SH="$TEST_ROOT/scripts/tools/refresh-systemd-service.sh"
+
+[ -f "$REFRESH_SYSTEMD_SH" ] ||
+    fail "project should provide a dedicated systemd service refresh tool for existing installs"
 
 assert_file_contains "$ENV_FILE" '^INIT_TYPE=tmux$' \
     "tmux should remain the default init mode"
@@ -55,6 +59,49 @@ assert_file_not_contains "$systemd_rendered" '^Limit[A-Z]' \
 
 assert_file_not_contains "$systemd_rendered" 'placeholder_' \
     "rendered systemd unit should not retain placeholders"
+
+refresh_tool_tmp=$(make_test_tmpdir "clash-refresh-systemd")
+refresh_install_dir="$refresh_tool_tmp/install"
+refresh_target="$refresh_tool_tmp/mihomo.service"
+mkdir -p \
+    "$refresh_install_dir/bin" \
+    "$refresh_install_dir/resources" \
+    "$refresh_install_dir/scripts/init" \
+    "$refresh_install_dir/scripts/tools"
+cp "$SYSTEMD_SH" "$refresh_install_dir/scripts/init/systemd.sh"
+cp "$REFRESH_SYSTEMD_SH" "$refresh_install_dir/scripts/tools/refresh-systemd-service.sh"
+printf 'clash-for-linux-install-multimode\n' >"$refresh_install_dir/.clashctl-install-root"
+cat >"$refresh_install_dir/resources/install-state.yaml" <<EOF
+install_dir: "$refresh_install_dir"
+kernel_name: "mihomo"
+default_mode: "tmux"
+installed_systemd_service: true
+versions:
+  mihomo: "v-test"
+  yq: "v-test"
+  subconverter: "v-test"
+EOF
+CLASHCTL_REFRESH_SYSTEMD_ALLOW_NON_ROOT=1 \
+    CLASHCTL_REFRESH_SYSTEMD_TARGET="$refresh_target" \
+    CLASHCTL_REFRESH_SYSTEMD_SKIP_DAEMON_RELOAD=1 \
+    CLASHCTL_REFRESH_SYSTEMD_SKIP_SYSTEMCTL_CAT=1 \
+    CLASHCTL_REFRESH_SYSTEMD_SKIP_VERIFY=1 \
+    bash "$refresh_install_dir/scripts/tools/refresh-systemd-service.sh" >/dev/null
+
+assert_file_contains "$refresh_target" "^User=$(id -un)$" \
+    "systemd refresh tool should render User=<install owner>"
+
+assert_file_contains "$refresh_target" '^CapabilityBoundingSet=~$' \
+    "systemd refresh tool should render full capability bounding set"
+
+assert_file_contains "$refresh_target" '^AmbientCapabilities=~$' \
+    "systemd refresh tool should render full ambient capabilities"
+
+assert_file_not_contains "$refresh_target" '^Limit[A-Z]' \
+    "systemd refresh tool should not render project-level resource limits"
+
+assert_file_not_contains "$refresh_target" 'placeholder_' \
+    "systemd refresh tool should not leave placeholders in the unit"
 
 assert_file_contains "$PREFLIGHT_SH" '--init=' \
     "_parse_args should accept --init=<mode>"

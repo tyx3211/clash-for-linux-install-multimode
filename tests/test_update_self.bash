@@ -76,6 +76,9 @@ grep -q "source \"$install_dir/scripts/cmd/clashctl.sh\"" "$update_tmp/update.ou
 grep -q 'clashctl off && clashctl on' "$update_tmp/update.out" ||
     fail "update should tell users how to restart the kernel with refreshed scripts if needed"
 
+[ -f "$install_dir/scripts/tools/refresh-systemd-service.sh" ] ||
+    fail "update should refresh the dedicated systemd service refresh tool"
+
 [ ! -e "$install_dir/.git" ] ||
     fail "update should not create .git in install dir when source is a git checkout"
 
@@ -578,6 +581,27 @@ grep -q 'scripts/tools/sync-root-rc.sh' "$update_tmp/source-missing-tool.err" ||
     fail "missing root rc tool rejection should name scripts/tools/sync-root-rc.sh"
 grep -qx 'installed-tool' "$source_missing_tool_install_dir/scripts/tools/sync-root-rc.sh" ||
     fail "rejected source missing root rc tools should not refresh target scripts"
+
+systemd_hint_install_dir="$update_tmp/systemd-hint-install"
+mkdir -p "$systemd_hint_install_dir/resources" "$systemd_hint_install_dir/scripts/cmd"
+write_test_install_yq "$systemd_hint_install_dir"
+printf 'clash-for-linux-install-multimode\n' >"$systemd_hint_install_dir/.clashctl-install-root"
+printf 'mixin\n' >"$systemd_hint_install_dir/resources/mixin.yaml"
+cat >"$systemd_hint_install_dir/resources/install-state.yaml" <<EOF
+install_dir: "$systemd_hint_install_dir"
+kernel_name: "mihomo"
+default_mode: "tmux"
+installed_systemd_service: true
+versions:
+  mihomo: "v-state"
+  yq: "v-state"
+  subconverter: "v-state"
+EOF
+printf 'installed-script\n' >"$systemd_hint_install_dir/scripts/cmd/clashctl.sh"
+bash "$TEST_ROOT/update.sh" --target "$systemd_hint_install_dir" --source "$source_dir" \
+    >"$update_tmp/systemd-hint.out"
+grep -q "refresh-systemd-service.sh" "$update_tmp/systemd-hint.out" ||
+    fail "update should tell systemd users how to refresh the registered unit after template changes"
 
 git_preserve_source_dir="$update_tmp/git-preserve-source"
 git_preserve_install_dir="$update_tmp/git-preserve-install"

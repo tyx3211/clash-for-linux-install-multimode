@@ -100,15 +100,16 @@ sudo journalctl -u mihomo -n 120 --no-pager
 
 这里仍然是系统级 systemd 服务，不是 `systemd --user`。
 
-`clashctl update-self` 会刷新安装目录里的 service 模板，但不会自动改已经注册到 `/etc/systemd/system/mihomo.service` 的真实 systemd unit。更新后如果要让 systemd/Tun 路线立刻使用新模板，建议在源码仓库根目录重新注册一次：
+`clashctl update-self` 会刷新安装目录里的 service 模板，但不会自动改已经注册到 `/etc/systemd/system/mihomo.service` 的真实 systemd unit。更新后如果要让 systemd/Tun 路线立刻使用新模板，请刷新已注册 unit：
 
 ```bash
-sudo bash install.sh --init systemd
-sudo systemctl daemon-reload
+sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"
 clashrestart --mode systemd
 ```
 
-如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本不再设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻重新注册时，可以先手工同步已有 unit：
+不要用 `sudo bash install.sh --init systemd` 刷新已有安装；`install.sh` 是初装入口，看到安装目录已存在会拒绝继续。
+
+如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本不再设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻使用刷新工具时，可以先手工同步已有 unit：
 
 ```bash
 sudo sed -i '/^Limit[A-Z]/d' /etc/systemd/system/mihomo.service

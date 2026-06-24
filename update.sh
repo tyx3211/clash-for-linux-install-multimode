@@ -302,6 +302,7 @@ _validate_source_tree() {
         scripts/install/archive-safe.sh
         scripts/install/service-render.sh
         scripts/install/rc.sh
+        scripts/tools/refresh-systemd-service.sh
         scripts/tools/root-rc-common.sh
         scripts/tools/sync-root-rc.sh
         scripts/tools/unsync-root-rc.sh
@@ -441,6 +442,23 @@ _migrate_known_env_defaults() {
     mv "$tmp_file" "$env_file"
 }
 
+_target_has_systemd_service() {
+    local value installed_init default_mode
+
+    if [ -e "$target/resources/install-state.yaml" ]; then
+        value=$(_read_state_value "$target" installed_systemd_service 2>/dev/null || true)
+    fi
+    case "$value" in
+    true | yes | 1 | systemd)
+        return 0
+        ;;
+    esac
+
+    installed_init=$(_path_env_read_value "$env_path" CLASH_INSTALLED_INIT_TYPE 2>/dev/null || true)
+    default_mode=$(_path_env_read_value "$env_path" INIT_TYPE 2>/dev/null || true)
+    [ "$installed_init" = systemd ] || [ "$default_mode" = systemd ]
+}
+
 while (($#)); do
     case "$1" in
     --target=*)
@@ -501,6 +519,7 @@ Usage:
 默认从当前源码仓库刷新已安装的 clashctl 脚本和文档资产，并保留用户配置、订阅和运行状态。
 安装状态优先保存在 resources/install-state.yaml；旧 .env 如存在会继续保留用于兼容。
 如果在已安装目录中运行且未指定 --source，则默认从 GitHub 下载 tyx3211/clash-for-linux-install-multimode 的 main 分支后无损更新。
+如果使用 systemd/Tun，更新后按输出提示执行 refresh-systemd-service.sh 刷新真实 systemd unit。
 --gh-proxy 只影响本次 update-self 下载；如需持久默认值，请在安装时使用 bash install.sh --gh-proxy <url>。
 EOF
         exit 0
@@ -687,4 +706,8 @@ trap - EXIT INT TERM
 [ "$legacy" = true ] && printf '📢 已按历史 nosudo-tmux 安装目录执行原地迁移，旧配置已保留。\n'
 printf '✨ 项目脚本已更新，用户配置和订阅状态已保留：%s\n' "$target"
 printf '👉 当前 shell 立即加载新命令：source "%s/scripts/cmd/clashctl.sh"\n' "$target"
+if _target_has_systemd_service; then
+    printf '👉 如需刷新已注册 systemd unit：sudo "%s/scripts/tools/refresh-systemd-service.sh"\n' "$target"
+    printf '👉 刷新后让新 unit 生效：clashrestart --mode systemd\n'
+fi
 printf '👉 如需用新脚本重启内核：clashctl off && clashctl on\n'

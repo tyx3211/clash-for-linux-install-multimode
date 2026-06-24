@@ -546,6 +546,15 @@ clashctl update-self --source "<源码目录>"
 
 该操作只刷新脚本、service 模板和文档资产，不覆盖 `config/`、`resources/install-state.yaml`、`resources/config.yaml`、`resources/runtime.yaml`、订阅 profiles、日志和运行状态。旧安装目录如果已有 `.env`，会继续保留并只做兼容性更新；旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些文件也会原样保留。
 
+如果当前安装注册过 systemd 服务，`update-self` 只会刷新安装目录里的模板，不会直接修改 `/etc/systemd/system/mihomo.service`。需要让真实 systemd unit 使用新模板时执行：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"
+clashrestart --mode systemd
+```
+
+不要用 `sudo bash install.sh --init systemd` 刷新已有安装；`install.sh` 是初装入口，安装目录已存在时会拒绝继续。
+
 更新完成后，当前 shell 里已经加载过的函数不会自动替换。立刻使用新脚本：
 
 ```bash
