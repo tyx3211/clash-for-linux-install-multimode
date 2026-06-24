@@ -34,13 +34,13 @@ Notes:
 EOF
 }
 
-_clashdeps_source_preflight() {
-    local preflight="$CLASH_BASE_DIR/scripts/preflight.sh"
-    [ -r "$preflight" ] || {
-        _failcat "缺少安装下载函数：$preflight"
+_clashdeps_source_downloads() {
+    local downloads="$CLASH_BASE_DIR/scripts/install/dependency-downloads.sh"
+    [ -r "$downloads" ] || {
+        _failcat "缺少依赖下载函数：$downloads"
         return 1
     }
-    . "$preflight"
+    . "$downloads"
     _error_quit() {
         [ $# -gt 0 ] && _failcat "${*: -1}"
         return 1
@@ -581,7 +581,7 @@ _clashdeps_main() {
     if [ "$mode" != download ]; then
         _clashdeps_reject_if_active || return 1
     fi
-    _clashdeps_source_preflight || return 1
+    _clashdeps_source_downloads || return 1
 
     if [ "$mode" = download ]; then
         stage_real=$(_clashdeps_stage_dir "$stage_dir" true) || return 1

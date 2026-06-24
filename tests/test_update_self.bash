@@ -581,6 +581,23 @@ grep -q 'scripts/lib/deps-update.sh' "$update_tmp/source-missing-deps.err" ||
 grep -qx 'installed-script' "$source_missing_deps_install_dir/scripts/cmd/clashctl.sh" ||
     fail "rejected source missing deps-update should not refresh target scripts"
 
+source_missing_downloads_dir="$update_tmp/source-missing-downloads"
+source_missing_downloads_install_dir="$update_tmp/source-missing-downloads-install"
+cp -a "$TEST_ROOT/." "$source_missing_downloads_dir"
+mkdir -p "$source_missing_downloads_install_dir/resources" "$source_missing_downloads_install_dir/scripts/cmd"
+write_test_install_yq "$source_missing_downloads_install_dir"
+printf 'clash-for-linux-install-multimode\n' >"$source_missing_downloads_install_dir/.clashctl-install-root"
+printf 'mixin\n' >"$source_missing_downloads_install_dir/resources/mixin.yaml"
+printf 'installed-script\n' >"$source_missing_downloads_install_dir/scripts/cmd/clashctl.sh"
+rm -f "$source_missing_downloads_dir/scripts/install/dependency-downloads.sh"
+bash "$TEST_ROOT/update.sh" --target "$source_missing_downloads_install_dir" --source "$source_missing_downloads_dir" \
+    >"$update_tmp/source-missing-downloads.out" 2>"$update_tmp/source-missing-downloads.err" &&
+    fail "update should reject source directories missing dependency-downloads.sh"
+grep -q 'scripts/install/dependency-downloads.sh' "$update_tmp/source-missing-downloads.err" ||
+    fail "missing dependency download module rejection should name scripts/install/dependency-downloads.sh"
+grep -qx 'installed-script' "$source_missing_downloads_install_dir/scripts/cmd/clashctl.sh" ||
+    fail "rejected source missing dependency-downloads should not refresh target scripts"
+
 source_missing_tool_dir="$update_tmp/source-missing-tool"
 source_missing_tool_install_dir="$update_tmp/source-missing-tool-install"
 cp -a "$TEST_ROOT/." "$source_missing_tool_dir"

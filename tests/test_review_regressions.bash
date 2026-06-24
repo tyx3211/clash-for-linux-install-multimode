@@ -6,6 +6,7 @@ set -euo pipefail
 
 INSTALL_SH="$TEST_ROOT/install.sh"
 PREFLIGHT_SH="$TEST_ROOT/scripts/preflight.sh"
+DEPENDENCY_DOWNLOADS_SH="$TEST_ROOT/scripts/install/dependency-downloads.sh"
 SERVICE_RENDER_SH="$TEST_ROOT/scripts/install/service-render.sh"
 CLASHCTL_SH="$TEST_ROOT/scripts/cmd/clashctl.sh"
 TUN_SH="$TEST_ROOT/scripts/lib/tun.sh"
@@ -83,17 +84,17 @@ assert_file_contains "$PREFLIGHT_SH" '_validate_install_path' \
 assert_file_contains "$SERVICE_RENDER_SH" '_install_service\(\)' \
     "preflight should define install service rendering"
 
-assert_file_contains "$PREFLIGHT_SH" '_fetch_latest_tag\(\)' \
-    "preflight should support resolving latest dependency versions when version variables are empty"
+assert_file_contains "$DEPENDENCY_DOWNLOADS_SH" '_fetch_latest_tag\(\)' \
+    "dependency download module should support resolving latest dependency versions when version variables are empty"
 
-assert_file_contains "$PREFLIGHT_SH" '_resolve_version VERSION_MIHOMO MetaCubeX/mihomo' \
-    "preflight should resolve missing mihomo version from GitHub latest release"
+assert_file_contains "$DEPENDENCY_DOWNLOADS_SH" '_resolve_version VERSION_MIHOMO MetaCubeX/mihomo' \
+    "dependency download module should resolve missing mihomo version from GitHub latest release"
 
-assert_file_contains "$PREFLIGHT_SH" '_resolve_version VERSION_YQ mikefarah/yq' \
-    "preflight should resolve missing yq version from GitHub latest release"
+assert_file_contains "$DEPENDENCY_DOWNLOADS_SH" '_resolve_version VERSION_YQ mikefarah/yq' \
+    "dependency download module should resolve missing yq version from GitHub latest release"
 
-assert_file_contains "$PREFLIGHT_SH" '_resolve_version VERSION_SUBCONVERTER "\$subconverter_repo"' \
-    "preflight should resolve missing subconverter version from the configured repository"
+assert_file_contains "$DEPENDENCY_DOWNLOADS_SH" '_resolve_version VERSION_SUBCONVERTER "\$subconverter_repo"' \
+    "dependency download module should resolve missing subconverter version from the configured repository"
 
 latest_version_tmp=$(make_test_tmpdir "clash-latest-version")
 (

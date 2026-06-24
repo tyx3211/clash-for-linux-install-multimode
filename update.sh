@@ -80,6 +80,24 @@ _load_install_state_lib() {
     _die "缺少安装状态解析脚本：$THIS_UPDATE_DIR/scripts/lib/install-state.sh"
 }
 
+_load_archive_safe_lib() {
+    [ "${ARCHIVE_SAFE_LIB_LOADED:-false}" = true ] && return 0
+
+    local candidate candidates=("$THIS_UPDATE_DIR/scripts/install/archive-safe.sh")
+    [ -n "${SOURCE_DIR:-}" ] && candidates+=("$SOURCE_DIR/scripts/install/archive-safe.sh")
+    for candidate in "${candidates[@]}"; do
+        [ -n "$candidate" ] || continue
+        [ -r "$candidate" ] || continue
+        . "$candidate" || _die "归档安全脚本加载失败：$candidate"
+        declare -F _tar_archive_is_safe >/dev/null ||
+            _die "归档安全脚本缺少必要函数：$candidate"
+        ARCHIVE_SAFE_LIB_LOADED=true
+        return 0
+    done
+
+    _die "缺少归档安全脚本：$THIS_UPDATE_DIR/scripts/install/archive-safe.sh"
+}
+
 _read_state_value() {
     local root=$1 key=$2
     _load_install_state_lib
@@ -192,40 +210,11 @@ _validate_gh_proxy() {
     esac
 }
 
-_archive_member_path_is_safe() {
-    local member=${1#./}
-
-    case "$member" in
-    "" | "/" | /* | "." | ".." | ../* | */../* | */.. | */./* | */.)
-        return 1
-        ;;
-    esac
-    return 0
-}
-
-_tar_archive_is_safe() {
-    local archive=$1 mode member
-
-    tar -tf "$archive" >/dev/null 2>&1 || return 1
-    while IFS= read -r member; do
-        _archive_member_path_is_safe "$member" || return 1
-    done < <(tar -tf "$archive" 2>/dev/null)
-
-    while IFS= read -r mode _; do
-        case "$mode" in
-        -* | d*)
-            ;;
-        *)
-            return 1
-            ;;
-        esac
-    done < <(tar -tvf "$archive" 2>/dev/null)
-    return 0
-}
-
 _download_remote_source() {
     local update_target=$1
     local archive archive_root proxy url
+
+    _load_archive_safe_lib
 
     download_tmp=$(mktemp -d "$update_target/.update-source.XXXXXX")
     archive="$download_tmp/source.tar.gz"
@@ -301,6 +290,7 @@ _validate_source_tree() {
         scripts/lib/subscription.sh
         scripts/lib/tun.sh
         scripts/install/archive-safe.sh
+        scripts/install/dependency-downloads.sh
         scripts/install/service-render.sh
         scripts/install/rc.sh
         scripts/tools/refresh-systemd-service.sh

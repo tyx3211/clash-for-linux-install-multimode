@@ -94,7 +94,7 @@
    在前几批稳定后，再拆 `scripts/preflight.sh`。推荐边界：
 
    - `scripts/install/args.sh`
-   - `scripts/install/downloads.sh`
+   - `scripts/install/dependency-downloads.sh`
    - `scripts/install/archive-safe.sh`
    - `scripts/install/service-render.sh`
    - `scripts/install/rc.sh`

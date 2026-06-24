@@ -213,7 +213,7 @@ EOF
     VERSION_SUBCONVERTER=v-env-subconverter
 
     _clashdeps_state_version() { return 1; }
-    _clashdeps_source_preflight() {
+    _clashdeps_source_downloads() {
         ZIP_BASE_DIR="$single_install/resources/zip"
         mkdir -p "$ZIP_BASE_DIR"
         ZIP_YQ="$deps_tmp/artifacts/yq.tar.gz"
@@ -289,7 +289,7 @@ EOF
     BIN_SUBCONVERTER="$rollback_install/bin/subconverter/subconverter"
     BIN_SUBCONVERTER_CONFIG="$rollback_install/bin/subconverter/pref.yml"
 
-    _clashdeps_source_preflight() {
+    _clashdeps_source_downloads() {
         ZIP_BASE_DIR="$rollback_install/resources/zip"
         mkdir -p "$ZIP_BASE_DIR"
         ZIP_MIHOMO="$deps_tmp/artifacts/mihomo.gz"
@@ -484,7 +484,7 @@ EOF
         fi
         return 1
     }
-    _clashdeps_source_preflight() {
+    _clashdeps_source_downloads() {
         ZIP_BASE_DIR="$race_install/resources/zip"
         mkdir -p "$ZIP_BASE_DIR"
         ZIP_YQ="$deps_tmp/artifacts/yq.tar.gz"
@@ -541,7 +541,7 @@ EOF
     BIN_SUBCONVERTER="$missing_created_install/bin/subconverter/subconverter"
     BIN_SUBCONVERTER_CONFIG="$missing_created_install/bin/subconverter/pref.yml"
 
-    _clashdeps_source_preflight() {
+    _clashdeps_source_downloads() {
         ZIP_BASE_DIR="$missing_created_install/resources/zip"
         mkdir -p "$ZIP_BASE_DIR"
         ZIP_SUBCONVERTER="$deps_tmp/artifacts/subconverter.tar.gz"

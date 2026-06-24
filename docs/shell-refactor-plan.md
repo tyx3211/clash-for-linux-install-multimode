@@ -178,6 +178,7 @@ git commit -m "refactor: tighten shell helper scopes"
 - Create: `scripts/install/archive-safe.sh`
 - Create: `scripts/install/service-render.sh`
 - Create: `scripts/install/rc.sh`
+- Create: `scripts/install/dependency-downloads.sh`
 - Modify: `scripts/preflight.sh`
 - Test: `tests/test_preflight_split.bash`
 - Test: `tests/test_rendered_install.bash`
@@ -187,7 +188,7 @@ git commit -m "refactor: tighten shell helper scopes"
 
 - `scripts/preflight.sh` 保留总控流程和少量全局安装变量。
 - `args.sh` 只处理参数、安装路径、模式选择。
-- `downloads.sh` 只处理下载和依赖归档。
+- `dependency-downloads.sh` 只处理下载和依赖归档。
 - `archive-safe.sh` 只处理 tar/zip 成员安全校验。
 - `service-render.sh` 只处理 service adapter 模板渲染。
 - `rc.sh` 只处理 shell rc 片段写入与撤销。
@@ -200,7 +201,8 @@ git commit -m "refactor: tighten shell helper scopes"
 - [x] 运行安装渲染测试。
 - [x] 移动 shell rc 相关函数到 `scripts/install/rc.sh`。
 - [x] 运行安装渲染测试。
-- [x] 再评估是否移动下载和参数解析；当前结论是暂缓，以避免暴露更多隐式全局状态。
+- [x] 移动依赖下载和解压函数到 `scripts/install/dependency-downloads.sh`，让安装和 `update-deps` 共用同一套下载/校验/解压逻辑。
+- [x] 参数解析仍保留在 `scripts/preflight.sh`，避免安装入口全局状态继续外溢。
 - [x] 运行全量验证并提交：
 
 ```bash
