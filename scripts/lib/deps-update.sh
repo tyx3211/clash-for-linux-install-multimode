@@ -30,6 +30,7 @@ Notes:
   update-self 只刷新项目脚本；update-deps 才会替换 bin/ 下的二进制。
   update-deps 不管理运行态；请先 clashoff，更新后用 clashrestart 或 clashrestart --mode <mode> 拉起。
   网络不佳但仍需要当前 Clash 代理时，可先 download 到暂存目录，停服务后再 apply。
+  apply 未显式写 TARGET 时，会使用暂存清单中记录的 download 目标。
   默认版本固定到项目确认可用的稳定 release；--latest 才追 GitHub latest。
 EOF
 }
@@ -87,10 +88,23 @@ _clashdeps_stage_manifest() {
     printf '%s/deps-manifest.env\n' "$1"
 }
 
+_clashdeps_join_targets() {
+    local item joined=
+    for item in "$@"; do
+        if [ -n "$joined" ]; then
+            joined="${joined},${item}"
+        else
+            joined=$item
+        fi
+    done
+    printf '%s\n' "$joined"
+}
+
 _clashdeps_write_stage_manifest() {
     local stage_dir=$1 manifest
     manifest=$(_clashdeps_stage_manifest "$stage_dir")
     {
+        printf 'TARGETS=%s\n' "$(_clashdeps_join_targets "${targets[@]}")"
         printf 'VERSION_MIHOMO=%s\n' "${VERSION_MIHOMO##*-}"
         printf 'VERSION_YQ=%s\n' "$VERSION_YQ"
         printf 'VERSION_SUBCONVERTER=%s\n' "$VERSION_SUBCONVERTER"
@@ -99,6 +113,7 @@ _clashdeps_write_stage_manifest() {
 
 _clashdeps_read_stage_manifest() {
     local manifest=$1 key value
+    CLASHDEPS_STAGE_TARGETS=
     [ -f "$manifest" ] || {
         _failcat "暂存目录缺少依赖清单：$manifest"
         return 1
@@ -114,6 +129,15 @@ _clashdeps_read_stage_manifest() {
             esac
             printf -v "$key" '%s' "$value"
             ;;
+        TARGETS)
+            case "$value" in
+            "" | *[!a-z,]* | ,* | *, | *,,*)
+                _failcat "暂存依赖清单目标值不安全：$key=$value"
+                return 1
+                ;;
+            esac
+            CLASHDEPS_STAGE_TARGETS=$value
+            ;;
         "" | \#*)
             ;;
         *)
@@ -122,6 +146,42 @@ _clashdeps_read_stage_manifest() {
             ;;
         esac
     done <"$manifest"
+}
+
+_clashdeps_collect_stage_targets() {
+    local raw_targets=() rest item
+
+    if [ -n "${CLASHDEPS_STAGE_TARGETS:-}" ]; then
+        rest=$CLASHDEPS_STAGE_TARGETS
+        while [ -n "$rest" ]; do
+            case "$rest" in
+            *,*)
+                item=${rest%%,*}
+                rest=${rest#*,}
+                ;;
+            *)
+                item=$rest
+                rest=
+                ;;
+            esac
+            [ -n "$item" ] || {
+                _failcat "暂存依赖清单包含空目标：$CLASHDEPS_STAGE_TARGETS"
+                return 1
+            }
+            raw_targets+=("$item")
+        done
+    else
+        _load_zip >&/dev/null
+        [ -n "${ZIP_MIHOMO:-}" ] && raw_targets+=(mihomo)
+        [ -n "${ZIP_YQ:-}" ] && raw_targets+=(yq)
+        [ -n "${ZIP_SUBCONVERTER:-}" ] && raw_targets+=(subconverter)
+    fi
+
+    ((${#raw_targets[@]})) || {
+        _failcat "暂存依赖清单没有记录可应用目标；请显式指定 yq/mihomo/subconverter"
+        return 1
+    }
+    _clashdeps_collect_targets "${raw_targets[@]}"
 }
 
 _clashdeps_require_stage_zips() {
@@ -329,6 +389,66 @@ _clashdeps_pre_lock_check() {
     _clashdeps_reject_root_for_user_install || return 1
     _clashdeps_path_in_install "$CLASH_RESOURCES_DIR" || return 1
     return 0
+}
+
+_clashdeps_stage_dir_from_args() {
+    local arg
+    case "${1:-}" in
+    download | apply)
+        shift
+        ;;
+    esac
+    while (($#)); do
+        arg=$1
+        shift
+        case "$arg" in
+        --dir)
+            (($#)) || return 0
+            printf '%s\n' "$1"
+            return 0
+            ;;
+        --dir=*)
+            printf '%s\n' "${arg#--dir=}"
+            return 0
+            ;;
+        esac
+    done
+}
+
+_clashdeps_with_stage_lock() {
+    local cmd=$1 stage_dir stage_real lock_file lock_dir cmd_status
+    shift
+
+    stage_dir=$(_clashdeps_stage_dir_from_args "$@")
+    [ -n "$stage_dir" ] || {
+        "$cmd" "$@"
+        return
+    }
+
+    stage_real=$(_clashdeps_stage_dir "$stage_dir" true) || return 1
+    lock_file="${stage_real}/deps-update.lock"
+    command -v flock >/dev/null || {
+        lock_dir="${lock_file}.d"
+        mkdir "$lock_dir" 2>/dev/null || {
+            _failcat "另一个 update-deps download 正在写入暂存目录：$stage_real"
+            return 1
+        }
+        "$cmd" "$@"
+        cmd_status=$?
+        rmdir "$lock_dir" 2>/dev/null || true
+        return "$cmd_status"
+    }
+
+    exec 8>"$lock_file" || return 1
+    flock 8 || {
+        exec 8>&-
+        return 1
+    }
+    "$cmd" "$@"
+    cmd_status=$?
+    flock -u 8 2>/dev/null || true
+    exec 8>&-
+    return "$cmd_status"
 }
 
 _clashdeps_reject_if_subconverter_active() {
@@ -571,9 +691,9 @@ _clashdeps_main() {
         return 1
     fi
 
-    if ((${#raw_targets[@]})); then
+    if [ "$mode" != apply ] && ((${#raw_targets[@]})); then
         _clashdeps_collect_targets "${raw_targets[@]}" || return 1
-    else
+    elif [ "$mode" != apply ]; then
         _clashdeps_collect_targets all || return 1
     fi
 
@@ -595,6 +715,11 @@ _clashdeps_main() {
             return 1
         }
         _clashdeps_read_stage_manifest "$(_clashdeps_stage_manifest "$stage_real")" || return 1
+        if ((${#raw_targets[@]})); then
+            _clashdeps_collect_targets "${raw_targets[@]}" || return 1
+        else
+            _clashdeps_collect_stage_targets || return 1
+        fi
         _clashdeps_require_stage_zips || return 1
     else
         _clashdeps_validate_managed_paths || return 1
@@ -685,7 +810,7 @@ clashdeps() {
         return 0
         ;;
     download)
-        _clashdeps_main "$@"
+        _clashdeps_with_stage_lock _clashdeps_main "$@"
         return
         ;;
     esac

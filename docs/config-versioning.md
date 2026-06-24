@@ -107,7 +107,7 @@ git status
 
 如果使用 systemd/Tun 路线，`update-self` 只会刷新安装目录里的 service 模板，不会自动改 `/etc/systemd/system/mihomo.service` 或 `/etc/systemd/system/clash.service` 中已经注册的真实 unit。需要让 systemd unit 使用新模板时，请执行 `sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"`，再执行 `clashrestart --mode systemd`。不要用 `install.sh` 刷新已有安装；`install.sh` 是初装入口。
 
-需要更新 mihomo、yq、subconverter 这类二进制时，使用 `clashctl update-deps`。这个命令会更新 `bin/` 和本机版本状态；默认使用项目固定稳定版本，`--latest` 才查询 GitHub latest。直接更新只做离线文件替换，检测到当前安装仍在运行时会拒绝执行；需要先 `clashoff`，更新完成后再 `clashrestart`，如果要明确托管方式则执行 `clashrestart --mode <tmux|nohup|systemd>`。网络较差但仍需当前 Clash 代理下载时，可以先 `clashctl update-deps download all --dir <dir>`，停服务后再 `clashctl update-deps apply --dir <dir>`。
+需要更新 mihomo、yq、subconverter 这类二进制时，使用 `clashctl update-deps`。这个命令会更新 `bin/` 和本机版本状态；默认使用项目固定稳定版本，`--latest` 才查询 GitHub latest。直接更新只做离线文件替换，检测到当前安装仍在运行时会拒绝执行；需要先 `clashoff`，更新完成后再 `clashrestart`，如果要明确托管方式则执行 `clashrestart --mode <tmux|nohup|systemd>`。网络较差但仍需当前 Clash 代理下载时，可以先 `clashctl update-deps download all --dir <dir>`，停服务后再 `clashctl update-deps apply --dir <dir>`。暂存清单会记录下载目标，因此单独执行 `download yq --dir <dir>` 后也可以直接 `apply --dir <dir>`。
 
 这意味着配置目录中的 `.git` 会被完整保留。项目更新不会自动提交配置变更，也不会重写用户配置仓库。
 

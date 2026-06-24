@@ -313,6 +313,8 @@ clashctl update-deps apply --dir "$HOME/experiment/clash-deps-cache"
 clashrestart
 ```
 
+暂存目录会记录本次下载目标；`apply --dir <dir>` 没显式写目标时，会按暂存清单应用。例如 `download yq --dir <dir>` 后直接 `apply --dir <dir>`，只会替换 yq。
+
 如需让运行中的内核也按新版脚本重新拉起：
 
 ```bash

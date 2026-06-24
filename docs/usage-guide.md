@@ -268,8 +268,8 @@ clashtun on
 | `clashctl update-self --source <dir>` | 不需要 | 使用本地源码目录刷新安装目录，不访问 GitHub |
 | `clashctl update-deps --gh-proxy <url>` | 支持 | 只影响本次 GitHub release 依赖下载，不改写 `.env` 里的代理前缀 |
 | `clashctl update-deps --latest` | 支持 | 显式查询 GitHub `releases/latest`；默认使用项目固定稳定版本 |
-| `clashctl update-deps download ... --dir <dir>` | 支持 | 只下载 GitHub release 归档到暂存目录，不替换当前安装；可在内核运行时执行 |
-| `clashctl update-deps apply --dir <dir>` | 不需要 | 从本地暂存目录应用依赖替换，不访问 GitHub；要求当前安装已停止 |
+| `clashctl update-deps download ... --dir <dir>` | 支持 | 只下载 GitHub release 归档到暂存目录，不替换当前安装；清单会记录本次下载目标；可在内核运行时执行 |
+| `clashctl update-deps apply --dir <dir>` | 不需要 | 从本地暂存目录应用依赖替换，不访问 GitHub；未显式写目标时按暂存清单应用；要求当前安装已停止 |
 | `clashsub update` | 不支持 | 更新用户订阅 URL，订阅源不一定是 GitHub；应使用当前终端或系统网络环境处理订阅访问 |
 | `clashupgrade` | 不支持 | shell 端只请求本机 mihomo API 的 `/upgrade`，实际下载由 mihomo 内核处理 |
 | `migrate.sh` | 不需要 | 迁移从本地新源码目录刷新旧安装，不做远程 GitHub 下载 |
@@ -286,7 +286,7 @@ clashctl update-deps apply --dir "$HOME/experiment/clash-deps-cache"
 clashrestart
 ```
 
-如果只下载单个依赖，应用时也写同一个目标，例如 `clashctl update-deps download yq --dir <dir>` 对应 `clashctl update-deps apply yq --dir <dir>`。
+暂存目录里的 `deps-manifest.env` 会记录本次下载目标；`apply --dir <dir>` 没显式写目标时，会按这份清单应用。例如 `clashctl update-deps download yq --dir <dir>` 后，直接 `clashctl update-deps apply --dir <dir>` 只会替换 yq。显式写目标仍然可以，例如 `clashctl update-deps apply yq --dir <dir>`。
 
 日常使用时，直接执行：
 

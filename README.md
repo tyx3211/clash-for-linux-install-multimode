@@ -134,6 +134,8 @@ clashctl update-deps apply --dir "$HOME/experiment/clash-deps-cache"
 clashrestart
 ```
 
+暂存目录里的 `deps-manifest.env` 会记录本次下载目标；`apply --dir <dir>` 没显式写目标时，会按这份清单应用。例如 `download yq --dir <dir>` 后，直接 `apply --dir <dir>` 只会替换 yq。
+
 `git clone` 得到的是安装源目录；默认安装目录 `~/clashctl` 不是项目 git 仓库，也不需要 `.git`。如果希望版本管理个人配置，推荐只在 `~/clashctl/config` 下建立 git 仓库。安装时可以使用 `bash install.sh --config-git` 或 `CLASHCTL_CONFIG_GIT=1 bash install.sh` 自动执行 `git init`。
 
 更多新手说明见 [快速上手教程](docs/quickstart.md)。运行托管模式、订阅和项目更新见 [当前版本使用指南](docs/usage-guide.md)。旧版升级见 [旧版迁移指南](docs/legacy-migration.md)。配置 Git 管理见 [配置版本管理](docs/config-versioning.md)。
@@ -537,8 +539,8 @@ GitHub 下载代理只作用在“本项目脚本更新”和“安装时 GitHub
 | `clashctl update-self --source <dir>` | 本地源码更新，不访问 GitHub，不需要代理 |
 | `clashctl update-deps --gh-proxy <url>` | 只影响本次 GitHub release 依赖下载，不改项目脚本 |
 | `clashctl update-deps --latest` | 显式解析 GitHub releases/latest；默认不追 latest |
-| `clashctl update-deps download ... --dir <dir>` | 只下载 GitHub release 归档到暂存目录，不要求停止当前内核；可配合 `--gh-proxy` / `--no-gh-proxy` |
-| `clashctl update-deps apply --dir <dir>` | 从本地暂存目录应用依赖替换，不访问 GitHub |
+| `clashctl update-deps download ... --dir <dir>` | 只下载 GitHub release 归档到暂存目录，不要求停止当前内核；清单会记录本次下载目标 |
+| `clashctl update-deps apply --dir <dir>` | 从本地暂存目录应用依赖替换，不访问 GitHub；未显式写目标时按暂存清单应用 |
 | `clashsub update` | 更新订阅 URL，不使用 GitHub 下载代理选项 |
 | `clashupgrade` | 请求本机 mihomo API 升级内核，不使用本项目的 GitHub 下载代理选项 |
 

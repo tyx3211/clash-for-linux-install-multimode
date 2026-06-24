@@ -696,6 +696,8 @@ staged_yq_old_hash=$(sha256sum "$staged_install/bin/yq" | awk '{print $1}')
     fail "staged dependency download should write a manifest"
 grep -qx 'VERSION_YQ=v4.53.3' "$staged_dir/deps-manifest.env" ||
     fail "staged dependency manifest should record downloaded versions"
+grep -qx 'TARGETS=yq' "$staged_dir/deps-manifest.env" ||
+    fail "staged dependency manifest should record downloaded targets"
 
 (
     set +e
@@ -739,10 +741,10 @@ grep -q 'clashoff' "$staged_tmp/apply-active.err" ||
     BIN_SUBCONVERTER_CONFIG="$staged_install/bin/subconverter/pref.yml"
     _get_active_mode() { return 1; }
 
-    clashdeps apply yq --dir "$staged_dir" >/dev/null 2>"$staged_tmp/apply.err" || exit 1
+    clashdeps apply --dir "$staged_dir" >/dev/null 2>"$staged_tmp/apply.err" || exit 1
 )
 "$staged_install/bin/yq" --version | grep -q 'v4.53.3' ||
-    fail "staged dependency apply should replace yq from the downloaded staging directory"
+    fail "staged dependency apply without explicit targets should use manifest targets"
 grep -qx 'VERSION_YQ=v4.53.3' "$staged_install/.env" ||
     fail "staged dependency apply should refresh yq version metadata"
 
@@ -842,6 +844,8 @@ fi
 
 assert_file_contains "$TEST_ROOT/scripts/lib/deps-update.sh" '_with_service_lock _clashdeps_main' \
     "dependency update should run under the service lock"
+assert_file_contains "$TEST_ROOT/scripts/lib/deps-update.sh" '_clashdeps_with_stage_lock _clashdeps_main "\$@"' \
+    "staged dependency download should use a stage-local lock"
 assert_file_contains "$CONFIG_SH" '_with_service_lock _merge_config_restart_impl' \
     "config merge restart should run under the service lock"
 assert_file_contains "$COMMON_SH" '_with_service_lock _download_convert_config_impl' \
