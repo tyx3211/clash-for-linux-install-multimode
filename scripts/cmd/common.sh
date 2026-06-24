@@ -11,6 +11,17 @@ _CLASHCTL_PATH_ENV_LIB="$THIS_SCRIPT_DIR/../lib/path-env.sh"
 }
 unset _CLASHCTL_PATH_ENV_LIB
 
+_CLASHCTL_ENV_WRITE_LIB="$THIS_SCRIPT_DIR/../lib/env-write.sh"
+[ -r "$_CLASHCTL_ENV_WRITE_LIB" ] || {
+    printf 'clashctl: missing required library: %s\n' "$_CLASHCTL_ENV_WRITE_LIB" >&2
+    return 1 2>/dev/null || exit 1
+}
+. "$_CLASHCTL_ENV_WRITE_LIB" || {
+    printf 'clashctl: failed to source library: %s\n' "$_CLASHCTL_ENV_WRITE_LIB" >&2
+    return 1 2>/dev/null || exit 1
+}
+unset _CLASHCTL_ENV_WRITE_LIB
+
 _CLASHCTL_INSTALL_STATE_LIB="$THIS_SCRIPT_DIR/../lib/install-state.sh"
 [ -r "$_CLASHCTL_INSTALL_STATE_LIB" ] || {
     printf 'clashctl: missing required library: %s\n' "$_CLASHCTL_INSTALL_STATE_LIB" >&2
@@ -735,14 +746,5 @@ _stop_convert() {
 }
 
 _set_env() {
-    local key=$1
-    local value=$2
-    local env_path="${CLASH_BASE_DIR}/.env"
-
-    grep -qE "^${key}=" "$env_path" && {
-        value=${value//&/\\&}
-        sed -i "s|^${key}=.*|${key}=${value}|" "$env_path"
-        return $?
-    }
-    echo "${key}=${value}" >>"$env_path"
+    _env_write_set "${CLASH_BASE_DIR}/.env" "$@"
 }

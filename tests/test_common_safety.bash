@@ -39,4 +39,10 @@ assert_file_contains "$COMMON_SH" '_clashctl_validate_runtime_paths\(\)' \
 assert_file_contains "$COMMON_SH" 'CLASH_BASE_DIR CLASH_RESOURCES_DIR CLASH_CONFIG_RUNTIME CLASH_CONFIG_MIXIN FILE_LOG FILE_PID BIN_KERNEL BIN_YQ' \
     "runtime path validation should cover critical executable, config, log and pid variables"
 
+assert_file_contains "$COMMON_SH" '../lib/env-write\.sh' \
+    "common.sh should load the shared env writer instead of keeping sed logic inline"
+
+assert_file_contains "$COMMON_SH" '_env_write_set "\$\{CLASH_BASE_DIR\}/\.env" "\$@"' \
+    "_set_env should delegate to the shared env writer"
+
 pass "common safety checks"

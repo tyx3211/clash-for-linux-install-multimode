@@ -281,6 +281,7 @@ _validate_source_tree() {
         scripts/cmd/common.sh
         scripts/cmd/clashctl.fish
         scripts/lib/config.sh
+        scripts/lib/env-write.sh
         scripts/lib/install-state.sh
         scripts/lib/path-env.sh
         scripts/lib/proxy.sh
