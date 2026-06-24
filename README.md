@@ -2,6 +2,8 @@
 
 默认免 sudo，以 `tmux` / `nohup` 在用户态托管内核，更适合共享机和普通用户环境；其中 `tmux` 会话便于查看、排障和手工管理。需要 Tun 时，可显式切换到 sudo + `systemd` 模式，适合单用户机器或明确授权的专用机器。
 
+项目更新、依赖更新和订阅更新彼此解耦：`clashctl update-self` 无损刷新脚本和文档，`clashctl update-deps` 显式更新 mihomo / yq / subconverter，`clashsub update` 只更新订阅。日常升级不需要重装，也不会覆盖 `config/`、订阅、mixin、profiles 和运行状态。
+
 ## 🚀 新用户 3 分钟上手
 
 ### 1. 第一次安装
@@ -121,6 +123,16 @@ clashrestart
 如果希望直接跟 GitHub latest release，再把中间一行换成 `clashctl update-deps --latest`。
 
 `update-deps` 不会停止或启动内核；如果当前安装正在运行，它会直接拒绝。这样可以避免“边替换二进制边重启服务”的复杂状态问题。
+
+如果网络不好，仍然需要当前 Clash 代理来下载 GitHub release，可以分两步做：先保持内核运行，只下载到暂存目录；下载完成后再短暂停服务并应用本地归档：
+
+```bash
+clashproxy on
+clashctl update-deps download all --dir "$HOME/experiment/clash-deps-cache" --no-gh-proxy
+clashoff
+clashctl update-deps apply --dir "$HOME/experiment/clash-deps-cache"
+clashrestart
+```
 
 `git clone` 得到的是安装源目录；默认安装目录 `~/clashctl` 不是项目 git 仓库，也不需要 `.git`。如果希望版本管理个人配置，推荐只在 `~/clashctl/config` 下建立 git 仓库。安装时可以使用 `bash install.sh --config-git` 或 `CLASHCTL_CONFIG_GIT=1 bash install.sh` 自动执行 `git init`。
 
@@ -525,6 +537,8 @@ GitHub 下载代理只作用在“本项目脚本更新”和“安装时 GitHub
 | `clashctl update-self --source <dir>` | 本地源码更新，不访问 GitHub，不需要代理 |
 | `clashctl update-deps --gh-proxy <url>` | 只影响本次 GitHub release 依赖下载，不改项目脚本 |
 | `clashctl update-deps --latest` | 显式解析 GitHub releases/latest；默认不追 latest |
+| `clashctl update-deps download ... --dir <dir>` | 只下载 GitHub release 归档到暂存目录，不要求停止当前内核；可配合 `--gh-proxy` / `--no-gh-proxy` |
+| `clashctl update-deps apply --dir <dir>` | 从本地暂存目录应用依赖替换，不访问 GitHub |
 | `clashsub update` | 更新订阅 URL，不使用 GitHub 下载代理选项 |
 | `clashupgrade` | 请求本机 mihomo API 升级内核，不使用本项目的 GitHub 下载代理选项 |
 

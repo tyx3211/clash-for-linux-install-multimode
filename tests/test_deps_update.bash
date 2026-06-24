@@ -621,6 +621,131 @@ restart_reject_tmp=$(make_test_tmpdir "clash-deps-update-restart-reject")
 grep -q 'clashrestart' "$restart_reject_tmp/err" ||
     fail "update-deps --restart rejection should tell users to restart explicitly"
 
+staged_tmp=$(make_test_tmpdir "clash-deps-update-staged")
+staged_install="$staged_tmp/install"
+staged_dir="$staged_tmp/stage"
+mkdir -p "$staged_install/bin/subconverter" "$staged_install/resources" "$staged_install/config"
+cp -a "$TEST_ROOT/scripts" "$staged_install/scripts"
+write_test_install_yq "$staged_install"
+cat >"$staged_install/.env" <<EOF
+KERNEL_NAME=mihomo
+CLASH_BASE_DIR=$staged_install
+INIT_TYPE=tmux
+VERSION_MIHOMO=v-old
+VERSION_YQ=v-old
+VERSION_SUBCONVERTER=v-old
+SUBCONVERTER_REPO=tindy2013/subconverter
+EOF
+cat >"$staged_install/resources/install-state.yaml" <<EOF
+install_dir: "$staged_install"
+kernel_name: "mihomo"
+default_mode: "tmux"
+installed_systemd_service: false
+versions:
+  mihomo: "v-old"
+  yq: "v-old"
+  subconverter: "v-old"
+EOF
+staged_yq_old_hash=$(sha256sum "$staged_install/bin/yq" | awk '{print $1}')
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_BASE_DIR="$staged_install"
+    CLASH_RESOURCES_DIR="$staged_install/resources"
+    CLASH_INSTALL_STATE="$staged_install/resources/install-state.yaml"
+    KERNEL_NAME=mihomo
+    INIT_TYPE=tmux
+    BIN_BASE_DIR="$staged_install/bin"
+    BIN_KERNEL="$staged_install/bin/mihomo"
+    BIN_YQ="$staged_install/bin/yq"
+    BIN_SUBCONVERTER_DIR="$staged_install/bin/subconverter"
+    BIN_SUBCONVERTER="$staged_install/bin/subconverter/subconverter"
+    BIN_SUBCONVERTER_CONFIG="$staged_install/bin/subconverter/pref.yml"
+    _get_active_mode() { printf 'tmux\n'; return 0; }
+    curl() {
+        local output= url= arg
+        while (($#)); do
+            arg=$1
+            shift
+            case "$arg" in
+            --output)
+                output=$1
+                shift
+                ;;
+            http*)
+                url=$arg
+                ;;
+            esac
+        done
+        case "$url" in
+        *mikefarah/yq*)
+            cp "$deps_tmp/artifacts/yq.tar.gz" "$output"
+            ;;
+        *)
+            return 9
+            ;;
+        esac
+    }
+
+    clashdeps download yq --dir "$staged_dir" --no-gh-proxy >"$staged_tmp/download.out" 2>"$staged_tmp/download.err" || exit 1
+) || fail "staged dependency download should be allowed while the service is active"
+[ "$(sha256sum "$staged_install/bin/yq" | awk '{print $1}')" = "$staged_yq_old_hash" ] ||
+    fail "staged dependency download should not replace binaries while the service is active"
+[ -f "$staged_dir/deps-manifest.env" ] ||
+    fail "staged dependency download should write a manifest"
+grep -qx 'VERSION_YQ=v4.53.3' "$staged_dir/deps-manifest.env" ||
+    fail "staged dependency manifest should record downloaded versions"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_BASE_DIR="$staged_install"
+    CLASH_RESOURCES_DIR="$staged_install/resources"
+    CLASH_INSTALL_STATE="$staged_install/resources/install-state.yaml"
+    KERNEL_NAME=mihomo
+    INIT_TYPE=tmux
+    BIN_BASE_DIR="$staged_install/bin"
+    BIN_KERNEL="$staged_install/bin/mihomo"
+    BIN_YQ="$staged_install/bin/yq"
+    BIN_SUBCONVERTER_DIR="$staged_install/bin/subconverter"
+    BIN_SUBCONVERTER="$staged_install/bin/subconverter/subconverter"
+    BIN_SUBCONVERTER_CONFIG="$staged_install/bin/subconverter/pref.yml"
+    _get_active_mode() { printf 'tmux\n'; return 0; }
+
+    clashdeps apply yq --dir "$staged_dir" >/dev/null 2>"$staged_tmp/apply-active.err"
+    [ "$?" -ne 0 ]
+) || fail "staged dependency apply should reject active services"
+[ "$(sha256sum "$staged_install/bin/yq" | awk '{print $1}')" = "$staged_yq_old_hash" ] ||
+    fail "staged dependency apply should not replace binaries while the service is active"
+grep -q 'clashoff' "$staged_tmp/apply-active.err" ||
+    fail "staged dependency apply rejection should tell users to stop the service"
+
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_BASE_DIR="$staged_install"
+    CLASH_RESOURCES_DIR="$staged_install/resources"
+    CLASH_INSTALL_STATE="$staged_install/resources/install-state.yaml"
+    KERNEL_NAME=mihomo
+    INIT_TYPE=tmux
+    BIN_BASE_DIR="$staged_install/bin"
+    BIN_KERNEL="$staged_install/bin/mihomo"
+    BIN_YQ="$staged_install/bin/yq"
+    BIN_SUBCONVERTER_DIR="$staged_install/bin/subconverter"
+    BIN_SUBCONVERTER="$staged_install/bin/subconverter/subconverter"
+    BIN_SUBCONVERTER_CONFIG="$staged_install/bin/subconverter/pref.yml"
+    _get_active_mode() { return 1; }
+
+    clashdeps apply yq --dir "$staged_dir" >/dev/null 2>"$staged_tmp/apply.err" || exit 1
+)
+"$staged_install/bin/yq" --version | grep -q 'v4.53.3' ||
+    fail "staged dependency apply should replace yq from the downloaded staging directory"
+grep -qx 'VERSION_YQ=v4.53.3' "$staged_install/.env" ||
+    fail "staged dependency apply should refresh yq version metadata"
+
 subconverter_active_tmp=$(make_test_tmpdir "clash-deps-update-subconverter-active")
 subconverter_active_install="$subconverter_active_tmp/install"
 (

@@ -156,6 +156,10 @@ Project Update:
   clashoff                         停止当前内核后再更新二进制
   clashctl update-deps             更新到项目固定稳定依赖版本
   clashctl update-deps --latest    更新到 GitHub latest release
+  clashctl update-deps download all --dir <dir>
+                                   先下载依赖归档，不要求停止当前内核
+  clashctl update-deps apply --dir <dir>
+                                   停止内核后，从暂存目录应用依赖替换
   clashrestart                     更新后重新启动内核
 
 Docs:

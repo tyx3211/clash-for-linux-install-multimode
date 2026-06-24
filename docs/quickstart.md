@@ -303,6 +303,16 @@ clashrestart
 
 `update-deps` 只做离线文件替换，不会自动停止或启动内核。检测到当前安装仍在运行时，它会拒绝执行；先手动 `clashoff` 可以让语义更清楚。
 
+网络较差时，如果仍需要当前 Clash 代理去下载 GitHub release，可以先保持内核运行，只把依赖归档下载到暂存目录；下载完成后再短暂停服务并应用：
+
+```bash
+clashproxy on
+clashctl update-deps download all --dir "$HOME/experiment/clash-deps-cache" --no-gh-proxy
+clashoff
+clashctl update-deps apply --dir "$HOME/experiment/clash-deps-cache"
+clashrestart
+```
+
 如需让运行中的内核也按新版脚本重新拉起：
 
 ```bash
