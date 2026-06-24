@@ -7,7 +7,7 @@
 当前仓库测试主要覆盖以下内容：
 
 - 静态检查：确认脚本里没有残留运行时替换占位符、危险的宽泛进程匹配、无损更新覆盖清单偏移。
-- 假环境行为测试：通过临时目录、桩函数和假命令验证 `clashon --mode ...`、`clashrestart --mode ...`、`clashoff`、`clashstatus --all`、`clashtun on/off` 的分支逻辑。
+- 假环境行为测试：通过临时目录、桩函数和假命令验证 `clashon --mode ...`、`clashrestart --mode ...`、`clashoff`、`clashstatus --all`、`clashtun on/off` 的分支逻辑，并覆盖 `systemd-resolved` DNS 接管状态解析。
 - 无损更新测试：确认 `update.sh` 只刷新脚本和项目资产，不覆盖 `config/`、`resources/install-state.yaml`、订阅 profiles、日志和 pid 状态。
 
 这些测试不会：
@@ -122,12 +122,14 @@ sudo env CLASH_BASE_DIR="$E2E_SYSTEMD_DIR" CLASHCTL_NO_RC=1 bash install.sh --in
 unset SUB_URL
 
 systemctl cat mihomo 2>/dev/null | grep -F "$E2E_SYSTEMD_DIR"
+! systemctl cat mihomo 2>/dev/null | grep -E '^[[:space:]]*(User=|CapabilityBoundingSet=|AmbientCapabilities=|LimitNPROC=|LimitNOFILE=)'
 
 . "$E2E_SYSTEMD_DIR/scripts/cmd/clashctl.sh"
 clashrestart --mode systemd
 clashstatus --all
 clashtun on
 clashtun status
+resolvectl status Mihomo 2>/dev/null || resolvectl status Meta 2>/dev/null || true
 clashtun off
 clashoff
 ```
@@ -137,6 +139,9 @@ clashoff
 - 未注册 systemd 服务时，`clashon --mode systemd` 会明确失败。
 - 当前活跃模式不是 `systemd` 时，`clashtun on` 会拒绝，并提示先执行 `clashrestart --mode systemd`。
 - `clashtun` 不会静默切换托管模式。
+- 真实 systemd unit 不应包含旧模型残留：`User=`、`CapabilityBoundingSet=`、`AmbientCapabilities=`、`LimitNPROC=`、`LimitNOFILE=`。
+- `clashtun on` 成功后，`clashtun status` 不只显示 Tun 设备存在，还应显示 `systemd-resolved` 已接管 DNS。
+- 在 Ubuntu / systemd-resolved 环境中，`resolvectl status Mihomo` 或 `resolvectl status Meta` 应能看到 `Current Scopes: DNS`、`DNS Servers` 和 `DNS Domain: ~.`。如果只看到 `Current Scopes: none`，说明 DNS 没有被 Tun 链路接管，需要刷新 systemd unit 并重新 `clashrestart --mode systemd`。
 
 如果执行了 systemd/Tun 可选项，验证完成后单独清理该安装：
 
@@ -172,6 +177,21 @@ clashstatus --all
 - 更新不会启动或停止内核。
 - 更新不会改订阅、mixin、sidecar 配置、运行时端口、日志和 pid 状态。
 - 更新只刷新脚本、README、docs、tests 等项目资产。
+
+如果本轮也执行了 systemd/Tun 可选项，额外验证真实 systemd unit 刷新流程：
+
+```bash
+bash update.sh --target "$E2E_SYSTEMD_DIR"
+sudo "$E2E_SYSTEMD_DIR/scripts/tools/refresh-systemd-service.sh"
+systemctl cat mihomo 2>/dev/null | grep -F "$E2E_SYSTEMD_DIR"
+! systemctl cat mihomo 2>/dev/null | grep -E '^[[:space:]]*(User=|CapabilityBoundingSet=|AmbientCapabilities=|LimitNPROC=|LimitNOFILE=)'
+
+. "$E2E_SYSTEMD_DIR/scripts/cmd/clashctl.sh"
+clashrestart --mode systemd
+clashtun status
+```
+
+预期结果：更新不会自动改 `/etc/systemd/system/mihomo.service`，只有执行 `refresh-systemd-service.sh` 后真实 unit 才使用新模板。
 
 ## 清理测试安装
 

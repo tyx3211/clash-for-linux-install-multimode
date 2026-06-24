@@ -5,8 +5,6 @@ After=network.target NetworkManager.service systemd-networkd.service iwd.service
 [Service]
 Type=simple
 placeholder_run_as_user
-CapabilityBoundingSet=~
-AmbientCapabilities=~
 Restart=always
 ExecStartPre=/usr/bin/sleep 1s
 ExecStart=placeholder_cmd_full

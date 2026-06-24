@@ -128,18 +128,6 @@ _recorded_install_dir() {
     _expand_install_path "$install_dir" "$recorded"
 }
 
-_service_user_line() {
-    local install_dir=$1 uid user
-    uid=$(stat -c '%u' "$install_dir" 2>/dev/null) ||
-        _die "无法读取安装目录属主：$install_dir"
-    [ "$uid" = 0 ] && return 0
-
-    user=$(awk -F: -v uid="$uid" '$3 == uid { print $1; exit }' /etc/passwd)
-    [ -n "$user" ] ||
-        _die "无法从 /etc/passwd 解析安装目录属主 uid：$uid"
-    printf 'User=%s\n' "$user"
-}
-
 _escape_sed_repl() {
     printf '%s' "$1" | sed 's/[\\#&]/\\&/g'
 }
@@ -213,7 +201,7 @@ trap '/usr/bin/rm -f "$tmp"' EXIT
 
 sed \
     -e "s#placeholder_kernel_desc#$(_escape_sed_repl "$kernel")#g" \
-    -e "s#placeholder_run_as_user#$(_escape_sed_repl "$(_service_user_line "$install_dir")")#g" \
+    -e "s#placeholder_run_as_user##g" \
     -e "s#placeholder_cmd_full#$(_escape_sed_repl "${recorded_install_dir}/bin/${kernel} -d ${recorded_install_dir}/resources -f ${recorded_install_dir}/resources/runtime.yaml")#g" \
     "$template" >"$tmp" ||
     _die "systemd unit 渲染失败"

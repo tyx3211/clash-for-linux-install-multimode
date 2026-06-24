@@ -109,15 +109,18 @@ clashrestart --mode systemd
 
 不要用 `sudo bash install.sh --init systemd` 刷新已有安装；`install.sh` 是初装入口，看到安装目录已存在会拒绝继续。
 
-如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本不再设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻使用刷新工具时，可以先手工同步已有 unit：
+如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本不再设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制，并且 systemd/Tun 的真实 unit 默认不写 `User=`，让 mihomo 以 root 身份运行。无法立刻使用刷新工具时，可以先手工同步已有 unit：
 
 ```bash
 sudo sed -i '/^Limit[A-Z]/d' /etc/systemd/system/mihomo.service
-sudo sed -i 's/^CapabilityBoundingSet=.*/CapabilityBoundingSet=~/' /etc/systemd/system/mihomo.service
-sudo sed -i 's/^AmbientCapabilities=.*/AmbientCapabilities=~/' /etc/systemd/system/mihomo.service
+sudo sed -i '/^User=/d' /etc/systemd/system/mihomo.service
+sudo sed -i '/^CapabilityBoundingSet=/d' /etc/systemd/system/mihomo.service
+sudo sed -i '/^AmbientCapabilities=/d' /etc/systemd/system/mihomo.service
 sudo systemctl daemon-reload
 sudo systemctl restart mihomo
 ```
+
+如果安装时选择的是 `KERNEL_NAME=clash`，把上面路径里的 `mihomo.service` 和重启命令里的 `mihomo` 改成 `clash.service` / `clash`。
 
 如果日志里出现 `resources/runtime.yaml: permission denied`，说明 sudo 安装或排障过程中把运行时文件写成了错误属主。确认 `~/clashctl` 是自己的安装目录后，执行：
 
@@ -338,7 +341,7 @@ sudo bash "$HOME/clashctl/uninstall.sh"
 
 运行时管理 systemd 服务需要 root 或免密 sudo。可以先用 `sudo -n systemctl status mihomo` 判断当前用户是否具备非交互 sudo 能力；如果该命令要求输入密码，`clashrestart --mode systemd` 和 `clashtun on` 也会失败。
 
-这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机上开启 Tun 可能影响整机流量路径，不建议作为默认方案。通过 sudo 安装时，systemd 服务进程仍以安装用户身份运行，但会获得接近 root 的完整 capability（能力），用来覆盖 Tun、路由、透明代理和 DNS 等网络功能需要的权限。
+这条路线建议只用于单用户机器、个人虚拟机或明确授权的专用机器。共享机上开启 Tun 可能影响整机流量路径，不建议作为默认方案。通过 sudo 安装时，systemd 服务由 root 写入系统目录，mihomo 也会作为系统服务默认以 root 身份运行，用来覆盖 Tun、路由、透明代理和 `systemd-resolved` DNS 接管等整机级网络能力。
 sudo 安装只是提权写入系统服务；默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。
 
 先注册系统服务：
@@ -356,6 +359,15 @@ sudo bash install.sh --init systemd
 然后切换到 systemd 托管并开启 Tun：
 
 ```bash
+clashrestart --mode systemd
+clashtun on
+clashtun status
+```
+
+`clashtun status` 会检查两件事：Tun 网卡是否存在，以及系统提供 `resolvectl` 时 `systemd-resolved` 是否把 DNS scope、DNS server 和 `~.` 路由域切到 Tun 链路。若提示 DNS 未接管，先刷新真实 systemd unit：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"
 clashrestart --mode systemd
 clashtun on
 ```

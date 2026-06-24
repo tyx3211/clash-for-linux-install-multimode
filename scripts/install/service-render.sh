@@ -102,7 +102,6 @@ _systemd() {
     service_is_active=($_SUDO systemctl is-active "$KERNEL_NAME")
 
     service_run_as_user=
-    _is_regular_sudo && service_run_as_user="User=$SUDO_USER"
     service_start_body="$(_quote_command "${service_start[@]}")"
     service_stop_body="$(_quote_command "${service_stop[@]}")"
     service_is_active_body="$(_quote_command "${service_is_active[@]}")"

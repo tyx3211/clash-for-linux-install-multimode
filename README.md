@@ -64,7 +64,7 @@ clashproxy on
 - `clashstatus` 查看当前内核是否运行。
 - `clashdoctor` 一次展示托管模式、API 健康、当前终端代理、全局自动代理和 Tun 状态，排障前先跑它最省事。
 - `clashproxy on` 只给当前终端写入代理环境变量，不改系统代理。
-- `systemd` 路线安装后，先执行 `clashrestart --mode systemd` 切到 systemd 托管；Tun 再执行 `clashtun on`。
+- `systemd` 路线安装后，先执行 `clashrestart --mode systemd` 切到 systemd 托管；Tun 再执行 `clashtun on` 和 `clashtun status`，确认 `systemd-resolved` 已接管 DNS。
 
 需要 Web 面板地址：
 
@@ -100,6 +100,15 @@ clashctl update-self
 ```
 
 这个命令会从本项目 GitHub `main` 分支下载最新源码，并无损刷新安装目录。它不会停止内核、不会启动内核、不会覆盖 `config/`、订阅、运行时配置、日志和 pid 状态。
+
+如果当前安装注册过 systemd 服务，`update-self` 只刷新安装目录里的模板，不会自动改真实 `/etc/systemd/system/*.service`。更新后需要让 systemd/Tun 路线使用新 unit 时执行：
+
+```bash
+sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"
+clashrestart --mode systemd
+```
+
+不要用 `sudo bash install.sh --init systemd` 刷新已有安装；`install.sh` 是初装入口，安装目录已存在时会拒绝继续。
 
 `git clone` 得到的是安装源目录；默认安装目录 `~/clashctl` 不是项目 git 仓库，也不需要 `.git`。如果希望版本管理个人配置，推荐只在 `~/clashctl/config` 下建立 git 仓库。安装时可以使用 `bash install.sh --config-git` 或 `CLASHCTL_CONFIG_GIT=1 bash install.sh` 自动执行 `git init`。
 
@@ -150,7 +159,7 @@ clashctl update-self
 
 - 本项目以 `INIT_TYPE=tmux` 为默认运行托管模式，请先确保系统已安装 `tmux`。
 - 如需纯用户态但不想依赖 `tmux`，可以在运行时使用 `clashon --mode nohup`。
-- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。systemd 模式会让进程以安装用户身份运行，但授予接近 root 的完整 capability（能力），取舍见 [上游致谢与项目差异：systemd 用户身份运行](docs/upstream-and-differences.md#systemd-用户身份运行).
+- 如需 Tun，请先使用 `sudo bash install.sh --init systemd` 注册 systemd 服务，再执行 `clashrestart --mode systemd` 和 `clashtun on`。运行时启动/停止 systemd 服务使用 `sudo -n systemctl`，因此需要 root 或免密 sudo；脚本不会停下来等待输入 sudo 密码。sudo 安装只用于写入系统服务，默认安装目录仍是发起 sudo 的普通用户目录，例如 `/home/william/clashctl`，不会变成 `/root/clashctl`。systemd/Tun 模式会让 mihomo 作为系统服务默认以 root 身份运行，安装目录和长期配置仍归属安装用户，取舍见 [上游致谢与项目差异：systemd/Tun root 运行](docs/upstream-and-differences.md#systemdtun-root-运行).
 - 新安装的 `external-controller` 默认绑定 `127.0.0.1:9090`，远程访问面板请优先使用 SSH 端口转发。旧安装无损更新后不会自动改已有端口，实际地址以 `clashui` 输出为准。
 - `clashproxy on` / `clashproxy off` 只影响当前 shell 的环境变量，不会改系统级代理。
 - `clashproxy status` 会显示当前终端实际环境变量，并在它们和当前运行配置不一致时提示刷新；只有 `no_proxy` / `NO_PROXY` 不算代理开启。
@@ -160,7 +169,7 @@ clashctl update-self
 
 测试默认在 `/tmp/tyx/clash-test-run.*` 下创建临时运行目录，退出时自动清理。在当前测试 shell 中 source `clashctl.sh` 的用例，应默认落到测试沙箱安装目录，不能读取或操作开发者真实的 `~/clashctl`、真实 `mihomo` 进程或真实 `tmux` 会话。只有专门验证 `.env` / install-state 覆盖语义的用例，才应显式清理沙箱变量后测试解析行为。
 
-和上游同步、systemd 用户身份运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
+和上游同步、systemd/Tun root 运行、多模式托管不变量见 [开发者设计说明](docs/developer-design-notes.md)。常用验证命令、临时目录清理策略、`TEST_KEEP_TMP=1` 调试方式和测试隔离原则见 [开发测试说明](docs/development-testing.md)。
 
 ## 🚀 安装
 
@@ -483,10 +492,11 @@ $ clashtun on
 $ clashtun off
 ```
 
-- `systemd` 注册会使用 root 或 sudo 写入系统服务；通过 sudo 安装时，服务进程会以 sudo 调用用户身份运行，并由 systemd 授予接近 root 的完整 capability（能力），以减少 Tun 和网络功能的权限回归。
-- 这不是安全降权边界；systemd/Tun 路线应按接近 root 权限理解，只建议用于单用户机器、个人虚拟机或明确授权的专用机器。
+- `systemd` 注册会使用 root 或 sudo 写入系统服务；通过 sudo 安装时，真实 systemd unit 默认不写 `User=`，因此 mihomo 以 root 身份运行。安装目录仍是 sudo 调用用户的 `~/clashctl`，配置和订阅仍建议回到安装用户 shell 维护。
+- 这不是安全降权边界；systemd/Tun 路线应按 root 级整机网络能力理解，只建议用于单用户机器、个人虚拟机或明确授权的专用机器。
+- systemd/Tun 的 root 服务会执行安装目录里的内核二进制和运行时配置，因此安装目录 owner 等价于这个 root 服务的管理员；不要把不可信用户可写目录注册成 systemd/Tun 安装目录。
 - 运行时的 `clashrestart --mode systemd`、`clashoff --mode systemd` 和 `clashtun on/off` 会使用非交互 sudo；如果当前用户执行 `sudo -n systemctl status mihomo` 会要求密码，这条路线也会失败。
-- 开启 Tun 时会修改 `config/mixin.yaml` 中的 `tun.enable`，重新合并运行时配置并重启内核。旧安装目录如果还没有 `config/`，会继续使用兼容路径 `resources/mixin.yaml`。
+- 开启 Tun 时会修改 `config/mixin.yaml` 中的 `tun.enable`，重新合并运行时配置并重启内核，并检查 `systemd-resolved` 是否把 DNS 接管到 Tun 链路。旧安装目录如果还没有 `config/`，会继续使用兼容路径 `resources/mixin.yaml`。
 - 共享机默认不建议启用 Tun，除非我们明确知道该机器允许普通用户通过 sudo 管理这个服务。
 
 ## 🔄 更新项目脚本

@@ -602,6 +602,8 @@ bash "$TEST_ROOT/update.sh" --target "$systemd_hint_install_dir" --source "$sour
     >"$update_tmp/systemd-hint.out"
 grep -q "refresh-systemd-service.sh" "$update_tmp/systemd-hint.out" ||
     fail "update should tell systemd users how to refresh the registered unit after template changes"
+grep -q "clashrestart --mode systemd" "$update_tmp/systemd-hint.out" ||
+    fail "update should tell systemd users to restart systemd mode after refreshing the unit"
 
 git_preserve_source_dir="$update_tmp/git-preserve-source"
 git_preserve_install_dir="$update_tmp/git-preserve-install"

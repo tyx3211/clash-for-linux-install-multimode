@@ -53,10 +53,10 @@ printf 'ci metadata\n' >"$install_payload_source/.github/workflows/ci.yml"
     fail "install payload should not copy editor-only metadata"
 
 assert_file_contains "$SYSTEMD_SH" 'placeholder_run_as_user' \
-    "systemd service should be able to run as the sudo invoking user"
+    "systemd service template should keep a placeholder that renders to an empty root-run line"
 
-assert_file_contains "$SERVICE_RENDER_SH" 'User=\$SUDO_USER|User="\$SUDO_USER"|service_run_as_user' \
-    "regular sudo systemd install should render a User= line"
+assert_file_not_contains "$SERVICE_RENDER_SH" 'User=\$SUDO_USER|User="\$SUDO_USER"' \
+    "regular sudo systemd install should not render User=<sudo user>; systemd/Tun runs as root"
 
 assert_file_contains "$SERVICE_RENDER_SH" '/usr/bin/install -D -m 755' \
     "rendered service files should keep read permission for init managers"
@@ -114,11 +114,11 @@ latest_version_proxy_tmp=$(make_test_tmpdir "clash-latest-version-proxy")
 grep -q 'https://gh-proxy.org/https://api.github.com/repos/mikefarah/yq/releases/latest' "$latest_version_proxy_tmp/curl.args" ||
     fail "latest release tag resolution should honor URL_GH_PROXY"
 
-assert_file_contains "$SYSTEMD_SH" '^CapabilityBoundingSet=~$' \
-    "systemd service should keep the full capability bounding set in user-owned systemd mode"
+assert_file_not_contains "$SYSTEMD_SH" '^CapabilityBoundingSet=' \
+    "systemd service should not emulate root via capability-only user mode"
 
-assert_file_contains "$SYSTEMD_SH" '^AmbientCapabilities=~$' \
-    "systemd service should grant full ambient capabilities while still rendering User=<install user>"
+assert_file_not_contains "$SYSTEMD_SH" '^AmbientCapabilities=' \
+    "systemd service should not grant ambient capabilities in root-run systemd/Tun mode"
 
 assert_file_contains "$SUBSCRIPTION_SH" '_download_config "\$CLASH_CONFIG_TEMP" "\$url" \\|\\|' \
     "clashsub add should stop immediately when subscription download fails"

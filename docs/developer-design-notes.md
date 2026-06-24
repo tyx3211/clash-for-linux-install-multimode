@@ -61,33 +61,33 @@ root 安装 + 系统服务 = root 运行代理内核
 ```text
 sudo 注册系统级 service（系统服务）
 /etc/systemd/system/<kernel>.service
-User=<sudo 调用用户>
-CapabilityBoundingSet=~
-AmbientCapabilities=~
+不写 User=，系统服务默认以 root 运行 mihomo / clash
+安装目录仍归属 sudo 调用用户
 ```
 
-也就是说，本项目没有使用 `systemd --user`。service（系统服务）仍然由系统级 systemd 管理，但 mihomo / clash 进程以安装时的普通用户身份运行。systemd 会给这个普通用户进程授予当前系统可用的完整 ambient capability（环境能力集合），使它在 Tun 和底层网络操作上接近 root 运行模型。
+也就是说，本项目没有使用 `systemd --user`。service（系统服务）仍然由系统级 systemd 管理，mihomo / clash 进程也按系统服务默认行为以 root 身份运行。默认安装目录仍是 sudo 调用用户的 `~/clashctl`，不是 `/root/clashctl`。
 
-这不是安全沙箱，也不是严格降权边界。full capability 可能包含 `CAP_DAC_OVERRIDE`、`CAP_SYS_ADMIN`、`CAP_SETUID`、`CAP_SETGID`、`CAP_SYS_PTRACE` 等高权限能力；如果服务进程被攻陷，攻击面应按接近 root 权限理解。这里保留的主要是不让安装目录、配置路径和文件归属漂移到 root，而不是把内核权限压到明显低于 root。
+这是一个有意的整机级运行模型，不是安全沙箱，也不是严格降权边界。之前版本曾尝试 `User=<安装用户>` 加完整 capability（Linux 能力）运行 mihomo；这个模型能覆盖 TUN、路由和透明代理等内核网络能力，但不能覆盖 `systemd-resolved` 的 D-Bus/Polkit 授权。实际问题是 `resolvectl dns/domain/default-route` 会被策略拒绝，而 mihomo / sing-tun 可能静默吞掉错误，最终系统 resolver 没有切到 Tun 链路。维护时不要把 full capability 当作 root 或 Polkit 授权的等价替代。
 
 这个设计的收益：
 
 - 运行时可以在 `tmux`、`nohup`、`systemd` 之间切换，三种模式共享同一个普通用户安装目录。
-- systemd/Tun 场景下，文件默认仍按安装用户身份读写，配置目录不容易因为 sudo 启动漂移成 `/root/clashctl`。
+- systemd/Tun 场景下，root 运行的服务读取同一个安装目录；脚本生成的长期配置和运行时配置仍应归还给安装用户，避免切回用户态时权限失败。
 - 不依赖共享机上经常不可用的 `systemd --user`。
 
 这个设计的代价：
 
-- full capability 授权已经接近 root 等级，不再是最小权限模型。它只适合单用户机器、个人虚拟机或明确授权的专用机器；共享机默认仍应使用 `tmux` / `nohup`。
+- systemd/Tun 是 root 级整机网络托管，不是最小权限模型。它只适合单用户机器、个人虚拟机或明确授权的专用机器；共享机默认仍应使用 `tmux` / `nohup`。
+- systemd unit 会让 root 执行安装目录里的 `bin/mihomo` / `bin/clash` 和 `resources/runtime.yaml`。因此安装目录 owner（属主）在 systemd/Tun 场景下等价于这个 root 服务的管理员；不要把普通不可信用户的可写目录注册成 systemd/Tun 安装目录。
 - sudo 安装或 root 排障过程中生成的运行时文件，必须保证安装用户可读写。
 - 不能让 root 环境下的 `~` 漂移到 `/root/clashctl`；sudo 安装默认仍应落到 sudo 调用用户的安装目录。
 - 运行时 systemd 操作使用 `sudo -n systemctl`，没有免密 sudo 时必须明确失败，不能卡住等待密码。
 - 公开的 `clashstatus` 在 systemd 模式下应展示 `systemctl status`，和上游的状态命令心智保持一致；内部启动、重启、UI 和升级流程需要确认本机控制口可用时，应调用 `_clash_api_health_check`，不要复用 public status。
-- systemd unit 不应设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制。资源上限交给系统默认、发行版策略和宿主机 cgroup；本项目不额外压低或固定这些限制。尤其服务进程以安装用户身份运行时，`LimitNPROC` 会按该用户已有进程/线程总量计数，共享机或桌面环境里很容易让 Go runtime 创建线程失败。
+- systemd unit 不应设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制。资源上限交给系统默认、发行版策略和宿主机 cgroup；本项目不额外压低或固定这些限制。
 
 因此维护时必须保留这些权限修复点：
 
-- 安装收尾可以递归修复安装目录 owner（属主），确保 systemd 以普通用户身份运行时能读写配置和日志。
+- 安装收尾可以递归修复安装目录 owner（属主），确保安装用户后续能继续维护配置、订阅和用户态托管模式。
 - 运行时配置合并只修复新生成的 `resources/runtime.yaml`，不要在普通命令里递归 `chown` 整个安装目录。
 - root shell 可以使用只读命令和代理入口；不推荐 root 日常执行订阅、mixin、secret、运行模式切换等持久可写操作。
 
@@ -111,6 +111,7 @@ Tun 只在已注册且属于当前安装的 systemd service（系统服务）下
 - 当前活跃模式不是 `systemd` 时拒绝开启 Tun，并提示 `clashrestart --mode systemd`。
 - 未注册 systemd service 时拒绝开启 Tun，并提示先执行 `sudo bash install.sh --init systemd`。
 - Tun 配置写入或重启失败时回滚，不要把不可用配置留给下一次启动。
+- Tun 网卡存在不等于 DNS 已接管；如果系统提供 `resolvectl`，`tunstatus` 和 `clashtun on` 必须检查 `systemd-resolved` 是否把 DNS scope、DNS server 和 `~.` 路由域切到 Tun 链路。
 
 ## 配置和状态边界
 

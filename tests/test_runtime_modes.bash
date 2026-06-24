@@ -1128,4 +1128,209 @@ tun_restore_tmp=$(make_test_tmpdir "clash-tun-restore")
         fail "_restore_tun_mixin should report failed systemd restart after rollback"
 )
 
+tun_resolver_tmp=$(make_test_tmpdir "clash-tun-resolver")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    BIN_YQ="$tun_resolver_tmp/yq"
+    CLASH_CONFIG_RUNTIME="$tun_resolver_tmp/runtime.yaml"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = '.tun.device // ""' ]; then
+    printf '\n'
+    exit 0
+fi
+exit 7
+EOF
+    chmod +x "$BIN_YQ"
+    printf '{}\n' >"$CLASH_CONFIG_RUNTIME"
+
+    ip() {
+        [ "$1" = link ] && [ "$2" = show ] && [ "$3" = Mihomo ]
+    }
+
+    selected=$(_tun_device)
+    [ "$selected" = Mihomo ] ||
+        fail "_tun_device should prefer an existing Mihomo link for mihomo"
+
+    healthy_output='Link 6 (Mihomo)
+    Current Scopes: DNS
+         Protocols: +DefaultRoute -LLMNR -mDNS
+       DNS Servers: 198.18.0.2
+        DNS Domain: ~.'
+    _tun_resolved_output_healthy "$healthy_output" ||
+        fail "_tun_resolved_output_healthy should accept DNS scope, DNS server and ~. domain"
+
+    unhealthy_output='Link 6 (Mihomo)
+    Current Scopes: none
+         Protocols: -DefaultRoute -LLMNR -mDNS'
+    ! _tun_resolved_output_healthy "$unhealthy_output" ||
+        fail "_tun_resolved_output_healthy should reject a Tun link without resolved DNS scope"
+)
+
+tun_resolver_status_tmp=$(make_test_tmpdir "clash-tun-resolver-status")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    BIN_YQ="$tun_resolver_status_tmp/yq"
+    CLASH_CONFIG_RUNTIME="$tun_resolver_status_tmp/runtime.yaml"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = '.tun.device // ""' ]; then
+    printf 'Mihomo\n'
+    exit 0
+fi
+exit 7
+EOF
+    chmod +x "$BIN_YQ"
+    printf '{}\n' >"$CLASH_CONFIG_RUNTIME"
+
+    _require_tun_runtime() { return 0; }
+    ip() {
+        [ "$1" = link ] && [ "$2" = show ] && [ "$3" = Mihomo ]
+    }
+    resolvectl() {
+        printf 'Link 6 (Mihomo)\n'
+        printf '    Current Scopes: none\n'
+        printf '         Protocols: -DefaultRoute -LLMNR -mDNS\n'
+    }
+    _okcat() { printf '%s\n' "$*" >>"$tun_resolver_status_tmp/out"; }
+    _failcat() { printf '%s\n' "$*" >>"$tun_resolver_status_tmp/err"; return 1; }
+
+    tunstatus
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "tunstatus should fail when the Tun link exists but systemd-resolved has not claimed DNS"
+    grep -q 'DNS 未接管' "$tun_resolver_status_tmp/err" ||
+        fail "tunstatus should explain that systemd-resolved DNS is not claimed"
+)
+
+tun_resolver_rollback_tmp=$(make_test_tmpdir "clash-tun-resolver-rollback")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_CONFIG_MIXIN="$tun_resolver_rollback_tmp/mixin.yaml"
+    CLASH_CONFIG_TEMP="$tun_resolver_rollback_tmp/temp.yaml"
+    BIN_YQ="$tun_resolver_rollback_tmp/yq"
+    printf 'tun:\n  enable: false\n' >"$CLASH_CONFIG_MIXIN"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-i" ]; then
+    printf 'tun:\n  enable: true\n' >"$3"
+    exit 0
+fi
+exit 0
+EOF
+    chmod +x "$BIN_YQ"
+
+    _require_tun_runtime() { return 0; }
+    _clash_service_is_active() { return 0; }
+    _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$tun_resolver_rollback_tmp/calls"; }
+    _clash_service_start() { printf 'start-%s\n' "$1" >>"$tun_resolver_rollback_tmp/calls"; return 0; }
+    _merge_config() { printf 'merge\n' >>"$tun_resolver_rollback_tmp/calls"; return 0; }
+    _tun_link_is_up() { return 0; }
+    _tun_resolved_wait() { return 1; }
+    _failcat() { :; }
+    _okcat() { :; }
+
+    tunon
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "tunon should fail when systemd-resolved DNS claim never becomes healthy"
+    grep -q 'enable: false' "$CLASH_CONFIG_MIXIN" ||
+        fail "tunon should restore mixin when resolver health check fails"
+)
+
+tunoff_stale_link_tmp=$(make_test_tmpdir "clash-tunoff-stale-link")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_CONFIG_MIXIN="$tunoff_stale_link_tmp/mixin.yaml"
+    CLASH_CONFIG_TEMP="$tunoff_stale_link_tmp/temp.yaml"
+    BIN_YQ="$tunoff_stale_link_tmp/yq"
+    printf 'tun:\n  enable: false\n' >"$CLASH_CONFIG_MIXIN"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-i" ]; then
+    printf 'tun:\n  enable: false\n' >"$3"
+    exit 0
+fi
+if [ "${1:-}" = '.tun.device // ""' ]; then
+    printf 'Mihomo\n'
+    exit 0
+fi
+exit 0
+EOF
+    chmod +x "$BIN_YQ"
+
+    link_up=true
+    _tun_supported() { return 0; }
+    _is_tun_enabled() { return 1; }
+    _tun_link_is_up() { [ "$link_up" = true ]; }
+    _clash_service_is_active() { return 0; }
+    _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$tunoff_stale_link_tmp/calls"; }
+    _clash_service_start() {
+        printf 'start-%s\n' "$1" >>"$tunoff_stale_link_tmp/calls"
+        link_up=false
+        return 0
+    }
+    _merge_config() { printf 'merge\n' >>"$tunoff_stale_link_tmp/calls"; return 0; }
+    tunstatus() { return 1; }
+    _failcat() { :; }
+    _okcat() { :; }
+
+    tunoff
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "tunoff should handle stale Tun links even when tunstatus fails due resolver health"
+    grep -qx 'stop-systemd' "$tunoff_stale_link_tmp/calls" ||
+        fail "tunoff should stop systemd when a stale Tun link exists"
+)
+
+tunoff_residual_link_tmp=$(make_test_tmpdir "clash-tunoff-residual-link")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_CONFIG_MIXIN="$tunoff_residual_link_tmp/mixin.yaml"
+    CLASH_CONFIG_TEMP="$tunoff_residual_link_tmp/temp.yaml"
+    BIN_YQ="$tunoff_residual_link_tmp/yq"
+    printf 'tun:\n  enable: true\n' >"$CLASH_CONFIG_MIXIN"
+    cat >"$BIN_YQ" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-i" ]; then
+    printf 'tun:\n  enable: false\n' >"$3"
+    exit 0
+fi
+if [ "${1:-}" = '.tun.device // ""' ]; then
+    printf 'Mihomo\n'
+    exit 0
+fi
+exit 0
+EOF
+    chmod +x "$BIN_YQ"
+
+    _tun_supported() { return 0; }
+    _is_tun_enabled() { return 0; }
+    _tun_link_is_up() { return 0; }
+    _clash_service_is_active() { return 0; }
+    _clash_service_stop() { printf 'stop-%s\n' "$1" >>"$tunoff_residual_link_tmp/calls"; }
+    _clash_service_start() { printf 'start-%s\n' "$1" >>"$tunoff_residual_link_tmp/calls"; return 0; }
+    _merge_config() { printf 'merge\n' >>"$tunoff_residual_link_tmp/calls"; return 0; }
+    tunstatus() { return 1; }
+    _failcat() { printf '%s\n' "$*" >>"$tunoff_residual_link_tmp/fail.log"; return 1; }
+    _okcat() { :; }
+
+    tunoff
+    status=$?
+    [ "$status" -ne 0 ] ||
+        fail "tunoff should fail when the Tun link remains after disabling runtime config"
+    grep -q 'Tun 模式关闭失败' "$tunoff_residual_link_tmp/fail.log" ||
+        fail "tunoff should report residual Tun link after restart"
+)
+
 pass "runtime mode checks"
