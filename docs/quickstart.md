@@ -108,10 +108,10 @@ sudo systemctl daemon-reload
 clashrestart --mode systemd
 ```
 
-如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本已经移除这个模板限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻重新注册时，可以先手工同步已有 unit：
+如果日志里出现 `runtime: failed to create new OS thread`、`may need to increase max user processes (ulimit -u)` 或 `fatal error: newosproc`，通常是旧 systemd unit 里保留了过低的 `LimitNPROC=500`。当前版本不再设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制，并把 systemd/Tun 的 capability（能力）策略调整为完整授权。无法立刻重新注册时，可以先手工同步已有 unit：
 
 ```bash
-sudo sed -i '/^LimitNPROC=/d' /etc/systemd/system/mihomo.service
+sudo sed -i '/^Limit[A-Z]/d' /etc/systemd/system/mihomo.service
 sudo sed -i 's/^CapabilityBoundingSet=.*/CapabilityBoundingSet=~/' /etc/systemd/system/mihomo.service
 sudo sed -i 's/^AmbientCapabilities=.*/AmbientCapabilities=~/' /etc/systemd/system/mihomo.service
 sudo systemctl daemon-reload

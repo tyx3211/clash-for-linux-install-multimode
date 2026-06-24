@@ -83,7 +83,7 @@ AmbientCapabilities=~
 - 不能让 root 环境下的 `~` 漂移到 `/root/clashctl`；sudo 安装默认仍应落到 sudo 调用用户的安装目录。
 - 运行时 systemd 操作使用 `sudo -n systemctl`，没有免密 sudo 时必须明确失败，不能卡住等待密码。
 - 公开的 `clashstatus` 在 systemd 模式下应展示 `systemctl status`，和上游的状态命令心智保持一致；内部启动、重启、UI 和升级流程需要确认本机控制口可用时，应调用 `_clash_api_health_check`，不要复用 public status。
-- systemd unit 不能设置较低的 `LimitNPROC`。本项目的服务进程以安装用户身份运行，`LimitNPROC` 会按该用户已有进程/线程总量计数；共享机或桌面环境里很容易让 Go runtime 创建线程失败。
+- systemd unit 不应设置 `LimitNPROC`、`LimitNOFILE` 等项目级资源限制。资源上限交给系统默认、发行版策略和宿主机 cgroup；本项目不额外压低或固定这些限制。尤其服务进程以安装用户身份运行时，`LimitNPROC` 会按该用户已有进程/线程总量计数，共享机或桌面环境里很容易让 Go runtime 创建线程失败。
 
 因此维护时必须保留这些权限修复点：
 

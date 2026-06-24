@@ -4,7 +4,6 @@ After=network.target NetworkManager.service systemd-networkd.service iwd.service
 
 [Service]
 Type=simple
-LimitNOFILE=1000000
 placeholder_run_as_user
 CapabilityBoundingSet=~
 AmbientCapabilities=~

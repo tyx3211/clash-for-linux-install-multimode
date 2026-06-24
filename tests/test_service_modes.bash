@@ -24,8 +24,8 @@ assert_file_contains "$SERVICE_RENDER_SH" 'nohup\)' \
 assert_file_contains "$SERVICE_RENDER_SH" 'systemd\)' \
     "_detect_init should support explicit systemd mode"
 
-assert_file_not_contains "$SYSTEMD_SH" '^LimitNPROC=' \
-    "systemd unit should not cap per-user process/thread count when running mihomo as the install user"
+assert_file_not_contains "$SYSTEMD_SH" '^Limit[A-Z]' \
+    "systemd unit should not add project-level resource limits"
 
 assert_file_contains "$SYSTEMD_SH" '^CapabilityBoundingSet=~$' \
     "systemd unit should keep the full capability bounding set for user-owned systemd mode"
@@ -50,8 +50,8 @@ assert_file_contains "$systemd_rendered" '^CapabilityBoundingSet=~$' \
 assert_file_contains "$systemd_rendered" '^AmbientCapabilities=~$' \
     "rendered systemd unit should grant full ambient capabilities"
 
-assert_file_not_contains "$systemd_rendered" '^LimitNPROC=' \
-    "rendered systemd unit should not cap the install user's process/thread count"
+assert_file_not_contains "$systemd_rendered" '^Limit[A-Z]' \
+    "rendered systemd unit should not add project-level resource limits"
 
 assert_file_not_contains "$systemd_rendered" 'placeholder_' \
     "rendered systemd unit should not retain placeholders"
