@@ -241,7 +241,7 @@ sudo bash install.sh --init=systemd
 - `sudo bash install.sh --init systemd` 只提权写入系统服务；默认安装目录仍归属发起 sudo 的普通用户，例如 `/home/william/clashctl`，不会安装到 `/root/clashctl`。
 - 安装后也可以用 `clashon --mode ...` / `clashrestart --mode ...` 在运行时选择本次托管模式；`systemd` 只有在当前安装已经 sudo 注册服务后才可用。
 - `.env` 现在只作为安装前默认值和旧版本兼容入口。安装完成后，本机安装状态以 `resources/install-state.yaml` 为主；普通使用者通常不需要修改它。
-- `.env` 里的 `VERSION_MIHOMO`、`VERSION_YQ`、`VERSION_SUBCONVERTER` 默认固定版本；如果留空，安装脚本会通过 GitHub `releases/latest` 自动解析最新 tag。共享机或网络受限环境建议固定版本，便于复现和排错。
+- `.env` 里的 `VERSION_MIHOMO`、`VERSION_YQ`、`VERSION_SUBCONVERTER` 默认固定到当前确认可用的稳定 release；如果留空，安装脚本会通过 GitHub `releases/latest` 自动解析最新稳定 tag。共享机或网络受限环境建议固定版本，便于复现和排错。
 - `.env` 里的 `CLASH_CONFIG_URL` 默认留空，不再内置任何真实订阅链接。
 - 安装结束时，如果 `CLASH_CONFIG_URL` 仍为空，脚本会交互式提示输入订阅链接。
 - 也可以先编辑 `.env` 再安装，显式指定订阅链接；链接务必使用双引号包起来。

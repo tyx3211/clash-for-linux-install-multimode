@@ -261,7 +261,7 @@ clashtun on
 | 命令或链路 | 是否支持 `--gh-proxy` | 说明 |
 | --- | --- | --- |
 | `bash install.sh --gh-proxy <url>` | 支持 | 持久写入安装目录 `.env`，安装阶段下载 GitHub release 资产时使用 |
-| 安装时空版本号 latest release 查询 | 支持 | 如果 `.env` 里把 `VERSION_MIHOMO` / `VERSION_YQ` / `VERSION_SUBCONVERTER` 留空，查询 GitHub `releases/latest` API 时也使用该代理前缀 |
+| 安装时空版本号 latest release 查询 | 支持 | 默认版本固定到确认可用的稳定 release；如果 `.env` 里把 `VERSION_MIHOMO` / `VERSION_YQ` / `VERSION_SUBCONVERTER` 留空，查询 GitHub `releases/latest` API 时也使用该代理前缀 |
 | `clashctl update-self --gh-proxy <url>` | 支持 | 只影响本次从 GitHub 下载项目源码，不改写 `.env` |
 | `bash update.sh --gh-proxy <url>` | 支持 | 等价于项目自更新脚本的一次性 GitHub 下载代理 |
 | `clashctl update-self --source <dir>` | 不需要 | 使用本地源码目录刷新安装目录，不访问 GitHub |

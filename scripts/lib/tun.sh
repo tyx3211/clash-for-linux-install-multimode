@@ -153,18 +153,6 @@ _tun_resolved_report() {
     return 1
 }
 
-_tun_resolved_revert() {
-    local device=$1
-
-    _tun_resolved_available || return 0
-    if [ "$(id -u)" -eq 0 ]; then
-        resolvectl revert "$device" >/dev/null 2>&1 || return 1
-        return 0
-    fi
-    command -v sudo >/dev/null || return 1
-    sudo -n resolvectl revert "$device" >/dev/null 2>&1
-}
-
 tunstatus() {
     _require_tun_runtime || return 1
 
@@ -256,9 +244,6 @@ tunoff() {
     }
     _clash_service_is_active systemd >&/dev/null && was_active=true
     cat "$CLASH_CONFIG_MIXIN" >"$backup" || return 1
-    if [ "$was_active" = true ] && _tun_link_is_up "$device" >/dev/null 2>&1; then
-        _tun_resolved_revert "$device" >/dev/null 2>&1 || true
-    fi
     [ "$was_active" = true ] && _clash_service_stop systemd >/dev/null
     "$BIN_YQ" -i '.tun.enable = false' "$CLASH_CONFIG_MIXIN"
     _merge_config || {

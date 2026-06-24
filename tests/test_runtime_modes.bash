@@ -1207,6 +1207,63 @@ EOF
         fail "tunstatus should explain that systemd-resolved DNS is not claimed"
 )
 
+tunoff_does_not_manage_resolved_tmp=$(make_test_tmpdir "clash-tunoff-no-resolved-revert")
+(
+    set +e
+    . "$CLASHCTL_SH"
+
+    CLASH_CONFIG_MIXIN="$tunoff_does_not_manage_resolved_tmp/mixin.yaml"
+    CLASH_CONFIG_TEMP="$tunoff_does_not_manage_resolved_tmp/temp.yaml"
+    BIN_YQ="$tunoff_does_not_manage_resolved_tmp/yq"
+    printf 'tun:\n  enable: true\n' >"$CLASH_CONFIG_MIXIN"
+    cat >"$BIN_YQ" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = ".tun.device // \"\"" ]; then
+    printf 'Mihomo\n'
+    exit 0
+fi
+if [ "\${1:-}" = "-e" ]; then
+    exit 0
+fi
+if [ "\${1:-}" = "-i" ]; then
+    printf 'tun:\n  enable: false\n' >"\$3"
+    exit 0
+fi
+exit 0
+EOF
+    chmod +x "$BIN_YQ"
+
+    _tun_supported() { return 0; }
+    _clash_service_is_active() { return 0; }
+    _clash_service_start() { printf 'start-%s\n' "$1" >>"$tunoff_does_not_manage_resolved_tmp/calls"; return 0; }
+    _merge_config() { printf 'merge\n' >>"$tunoff_does_not_manage_resolved_tmp/calls"; return 0; }
+    _tun_link_is_up() {
+        [ ! -f "$tunoff_does_not_manage_resolved_tmp/stopped" ] || return 1
+        [ "$1" = Mihomo ]
+    }
+    _clash_service_stop() {
+        printf 'stop-%s\n' "$1" >>"$tunoff_does_not_manage_resolved_tmp/calls"
+        touch "$tunoff_does_not_manage_resolved_tmp/stopped"
+    }
+    resolvectl() {
+        printf 'resolvectl %s\n' "$*" >>"$tunoff_does_not_manage_resolved_tmp/calls"
+        return 0
+    }
+    sudo() {
+        printf 'sudo %s\n' "$*" >>"$tunoff_does_not_manage_resolved_tmp/calls"
+        return 0
+    }
+
+    tunoff
+    status=$?
+    [ "$status" -eq 0 ] ||
+        fail "tunoff should still succeed without wrapper-managed resolved cleanup"
+    ! grep -q 'resolvectl' "$tunoff_does_not_manage_resolved_tmp/calls" ||
+        fail "tunoff should not call resolvectl revert; mihomo should own resolved lifecycle"
+    ! grep -q 'revert' "$tunoff_does_not_manage_resolved_tmp/calls" ||
+        fail "tunoff should not attempt device-specific systemd-resolved revert"
+)
+
 tun_resolver_rollback_tmp=$(make_test_tmpdir "clash-tun-resolver-rollback")
 (
     set +e

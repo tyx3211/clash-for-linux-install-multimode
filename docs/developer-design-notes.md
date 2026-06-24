@@ -112,6 +112,7 @@ Tun 只在已注册且属于当前安装的 systemd service（系统服务）下
 - 未注册 systemd service 时拒绝开启 Tun，并提示先执行 `sudo bash install.sh --init systemd`。
 - Tun 配置写入或重启失败时回滚，不要把不可用配置留给下一次启动。
 - Tun 网卡存在不等于 DNS 已接管；如果系统提供 `resolvectl`，`tunstatus` 和 `clashtun on` 必须检查 `systemd-resolved` 是否把 DNS scope、DNS server 和 `~.` 路由域切到 Tun 链路。
+- shell wrapper（外层脚本）只做诊断，不调用 `resolvectl dns` / `resolvectl domain` / `resolvectl default-route` / `resolvectl revert` 接管 DNS 生命周期。DNS 接管和清理应由 root 模式运行的 mihomo / sing-tun 自己处理。
 
 ## 配置和状态边界
 

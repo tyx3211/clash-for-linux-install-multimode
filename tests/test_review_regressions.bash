@@ -262,8 +262,14 @@ assert_file_contains "$ENV_FILE" 'SUBCONVERTER_REPO=' \
 assert_file_contains "$ENV_FILE" '^SUBCONVERTER_REPO=tindy2013/subconverter$' \
     "default subconverter source should point at the official release repository"
 
+assert_file_contains "$ENV_FILE" '^VERSION_MIHOMO=v1\.19\.27$' \
+    "default mihomo version should track the current vetted stable release"
+
 assert_file_contains "$ENV_FILE" '^VERSION_YQ=v4\.53\.3$' \
     "default yq version should track the current vetted latest release"
+
+assert_file_contains "$ENV_FILE" '^VERSION_SUBCONVERTER=v0\.9\.0$' \
+    "default subconverter version should track the current official stable release"
 
 assert_file_contains "$ENV_FILE" 'CLASHCTL_DOWNLOAD_TIMEOUT=' \
     "dependency download timeout should be configurable like upstream"
