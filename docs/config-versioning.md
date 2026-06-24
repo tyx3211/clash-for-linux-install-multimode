@@ -93,6 +93,7 @@ git status
 `clashctl update-self` 只刷新项目脚本、service 模板、README、docs 和 tests，不会覆盖：
 
 - `config/`
+- `bin/` 里的 mihomo、yq、subconverter 二进制
 - `resources/install-state.yaml`
 - `resources/config.yaml`
 - `resources/runtime.yaml`
@@ -105,6 +106,8 @@ git status
 旧安装目录如果还在使用 `resources/mixin.yaml`、`resources/clashctl.yaml`、`resources/profiles.yaml`，这些旧路径文件也会原样保留。
 
 如果使用 systemd/Tun 路线，`update-self` 只会刷新安装目录里的 service 模板，不会自动改 `/etc/systemd/system/mihomo.service` 或 `/etc/systemd/system/clash.service` 中已经注册的真实 unit。需要让 systemd unit 使用新模板时，请执行 `sudo "$HOME/clashctl/scripts/tools/refresh-systemd-service.sh"`，再执行 `clashrestart --mode systemd`。不要用 `install.sh` 刷新已有安装；`install.sh` 是初装入口。
+
+需要更新 mihomo、yq、subconverter 这类二进制时，使用 `clashctl update-deps`。这个命令会更新 `bin/` 和本机版本状态；默认使用项目固定稳定版本，`--latest` 才查询 GitHub latest。它只做离线文件替换，检测到当前安装仍在运行时会拒绝执行；需要先 `clashoff`，更新完成后再 `clashrestart`，如果要明确托管方式则执行 `clashrestart --mode <tmux|nohup|systemd>`。
 
 这意味着配置目录中的 `.git` 会被完整保留。项目更新不会自动提交配置变更，也不会重写用户配置仓库。
 

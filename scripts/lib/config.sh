@@ -217,7 +217,7 @@ _restore_runtime_after_restart_failure() {
     return 0
 }
 
-_merge_config_restart() {
+_merge_config_restart_impl() {
     local mode active_status was_active=false allowed_ext_port=
     local runtime_restart_backup="${CLASH_CONFIG_RUNTIME}.restart.bak.$$"
 
@@ -283,6 +283,11 @@ _merge_config_restart() {
     _clash_print_failure_diagnostics "$mode"
     return 1
 }
+
+_merge_config_restart() {
+    _with_service_lock _merge_config_restart_impl "$@"
+}
+
 _get_secret() {
     "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME"
 }

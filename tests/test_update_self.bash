@@ -73,7 +73,7 @@ grep -q 'function clashctl' "$install_dir/scripts/cmd/clashctl.sh" ||
     fail "update should refresh installed clashctl script"
 grep -q "source \"$install_dir/scripts/cmd/clashctl.sh\"" "$update_tmp/update.out" ||
     fail "update should tell users how to load the refreshed shell commands immediately"
-grep -q 'clashctl off && clashctl on' "$update_tmp/update.out" ||
+grep -q 'clashrestart' "$update_tmp/update.out" ||
     fail "update should tell users how to restart the kernel with refreshed scripts if needed"
 
 [ -f "$install_dir/scripts/tools/refresh-systemd-service.sh" ] ||
@@ -563,6 +563,23 @@ grep -q 'scripts/install/rc.sh' "$update_tmp/source-missing-required.err" ||
     fail "missing required module rejection should name scripts/install/rc.sh"
 grep -qx 'installed-script' "$source_missing_required_install_dir/scripts/cmd/clashctl.sh" ||
     fail "rejected source missing required modules should not refresh target scripts"
+
+source_missing_deps_dir="$update_tmp/source-missing-deps"
+source_missing_deps_install_dir="$update_tmp/source-missing-deps-install"
+cp -a "$TEST_ROOT/." "$source_missing_deps_dir"
+mkdir -p "$source_missing_deps_install_dir/resources" "$source_missing_deps_install_dir/scripts/cmd"
+write_test_install_yq "$source_missing_deps_install_dir"
+printf 'clash-for-linux-install-multimode\n' >"$source_missing_deps_install_dir/.clashctl-install-root"
+printf 'mixin\n' >"$source_missing_deps_install_dir/resources/mixin.yaml"
+printf 'installed-script\n' >"$source_missing_deps_install_dir/scripts/cmd/clashctl.sh"
+rm -f "$source_missing_deps_dir/scripts/lib/deps-update.sh"
+bash "$TEST_ROOT/update.sh" --target "$source_missing_deps_install_dir" --source "$source_missing_deps_dir" \
+    >"$update_tmp/source-missing-deps.out" 2>"$update_tmp/source-missing-deps.err" &&
+    fail "update should reject source directories missing deps-update.sh"
+grep -q 'scripts/lib/deps-update.sh' "$update_tmp/source-missing-deps.err" ||
+    fail "missing deps update module rejection should name scripts/lib/deps-update.sh"
+grep -qx 'installed-script' "$source_missing_deps_install_dir/scripts/cmd/clashctl.sh" ||
+    fail "rejected source missing deps-update should not refresh target scripts"
 
 source_missing_tool_dir="$update_tmp/source-missing-tool"
 source_missing_tool_install_dir="$update_tmp/source-missing-tool-install"

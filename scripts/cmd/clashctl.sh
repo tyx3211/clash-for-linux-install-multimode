@@ -25,6 +25,7 @@ _clashctl_source_lib "$THIS_SCRIPT_DIR/../lib/service-runtime.sh" || { return 1 
 _clashctl_source_lib "$THIS_SCRIPT_DIR/../lib/config.sh" || { return 1 2>/dev/null || exit 1; }
 _clashctl_source_lib "$THIS_SCRIPT_DIR/../lib/tun.sh" || { return 1 2>/dev/null || exit 1; }
 _clashctl_source_lib "$THIS_SCRIPT_DIR/../lib/subscription.sh" || { return 1 2>/dev/null || exit 1; }
+_clashctl_source_lib "$THIS_SCRIPT_DIR/../lib/deps-update.sh" || { return 1 2>/dev/null || exit 1; }
 unset -f _clashctl_source_lib
 
 function clashctl() {
@@ -85,6 +86,10 @@ function clashctl() {
         shift
         bash "$CLASH_BASE_DIR/update.sh" --target "$CLASH_BASE_DIR" "$@"
         ;;
+    update-deps)
+        shift
+        clashdeps "$@"
+        ;;
     upgrade)
         shift
         clashupgrade "$@"
@@ -117,7 +122,8 @@ Commands:
   mixin                 Mixin 配置
   secret                Web 密钥
   update-self           从 GitHub 或本地源码无损更新项目脚本
-  upgrade               升级内核
+  update-deps           显式更新 mihomo/yq/subconverter 二进制
+  upgrade               请求 mihomo API 自升级内核
 
 Global Options:
   -h, --help            显示帮助信息
@@ -147,6 +153,10 @@ Project Update:
                                    本次更新直连 GitHub
   clashctl update-self --source <dir>
                                    从本地源码目录更新
+  clashoff                         停止当前内核后再更新二进制
+  clashctl update-deps             更新到项目固定稳定依赖版本
+  clashctl update-deps --latest    更新到 GitHub latest release
+  clashrestart                     更新后重新启动内核
 
 Docs:
   https://github.com/tyx3211/clash-for-linux-install-multimode/blob/main/docs/quickstart.md

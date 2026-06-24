@@ -147,6 +147,9 @@ assert_file_contains "$SUBSCRIPTION_SH" '_merge_config_restart \\|\\| return 1' 
 assert_file_contains "$CLASHCTL_SH" 'tun[[:space:]]+管理 Tun 模式' \
     "clashctl help should list the tun command"
 
+assert_file_contains "$CLASHCTL_SH" 'update-deps[[:space:]]+显式更新 mihomo/yq/subconverter' \
+    "clashctl help should distinguish dependency updates from project script updates"
+
 assert_file_contains "$PREFLIGHT_SH" 'CLASH_INSTALL_CREATED_DIR|trap .*CLASH_BASE_DIR|staging' \
     "install should clean up directories it created when install preparation fails"
 

@@ -171,7 +171,7 @@ _is_tun_enabled() {
     "$BIN_YQ" -e '.tun.enable == true' "$CLASH_CONFIG_RUNTIME" >&/dev/null
 }
 
-tunon() {
+_tunon_impl() {
     _require_tun_runtime || return 1
 
     local was_active=false backup="${CLASH_CONFIG_TEMP}.tun.bak" device
@@ -231,7 +231,11 @@ tunon() {
     _okcat "Tun 模式已开启"
 }
 
-tunoff() {
+tunon() {
+    _with_service_lock _tunon_impl "$@"
+}
+
+_tunoff_impl() {
     _tun_supported || {
         _failcat "当前安装未注册可用的 systemd 服务；如需 Tun，请先 sudo bash install.sh --init systemd"
         return 1
@@ -264,6 +268,10 @@ tunoff() {
     fi
     /usr/bin/rm -f "$backup"
     _okcat "Tun 模式已关闭"
+}
+
+tunoff() {
+    _with_service_lock _tunoff_impl "$@"
 }
 
 function clashtun() {

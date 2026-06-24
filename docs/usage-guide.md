@@ -62,7 +62,7 @@ CLASH_CONFIG_URL="https://example.com/sub?clash=3&extend=1"
 bash install.sh --gh-proxy https://gh-proxy.org
 ```
 
-这会影响安装阶段从 GitHub 下载 `mihomo`、`yq`、`subconverter` 等依赖，并把 `URL_GH_PROXY` 写入安装目录 `.env`。后续执行 `clashctl update-self` 从 GitHub 下载项目源码时，也会复用这个前缀。
+这会影响安装阶段从 GitHub 下载 `mihomo`、`yq`、`subconverter` 等依赖，并把 `URL_GH_PROXY` 写入安装目录 `.env`。后续执行 `clashctl update-self` 从 GitHub 下载项目源码，或执行 `clashctl update-deps` 下载 GitHub release 依赖时，也会复用这个前缀。
 
 如果希望明确直连 GitHub，可以使用：
 
@@ -250,7 +250,8 @@ clashtun on
 更新类型需要分开理解：
 
 - `clashsub update`：更新订阅。
-- `clashupgrade`：升级 mihomo/clash 内核。
+- `clashctl update-deps`：显式更新安装目录里的 mihomo、yq、subconverter 二进制。
+- `clashupgrade`：请求本机 mihomo API 执行内核自升级；不更新 yq、subconverter，也不更新项目脚本。
 - `bash update.sh --target <安装目录>` 或 `clashctl update-self --source <源码目录>`：更新本项目 shell 脚本和文档资产。
 - `clashctl update-self`：直接从 GitHub 下载本项目的 `main` 分支并无损更新当前安装目录。
 
@@ -265,9 +266,13 @@ clashtun on
 | `clashctl update-self --gh-proxy <url>` | 支持 | 只影响本次从 GitHub 下载项目源码，不改写 `.env` |
 | `bash update.sh --gh-proxy <url>` | 支持 | 等价于项目自更新脚本的一次性 GitHub 下载代理 |
 | `clashctl update-self --source <dir>` | 不需要 | 使用本地源码目录刷新安装目录，不访问 GitHub |
+| `clashctl update-deps --gh-proxy <url>` | 支持 | 只影响本次 GitHub release 依赖下载，不改写 `.env` 里的代理前缀 |
+| `clashctl update-deps --latest` | 支持 | 显式查询 GitHub `releases/latest`；默认使用项目固定稳定版本 |
 | `clashsub update` | 不支持 | 更新用户订阅 URL，订阅源不一定是 GitHub；应使用当前终端或系统网络环境处理订阅访问 |
 | `clashupgrade` | 不支持 | shell 端只请求本机 mihomo API 的 `/upgrade`，实际下载由 mihomo 内核处理 |
 | `migrate.sh` | 不需要 | 迁移从本地新源码目录刷新旧安装，不做远程 GitHub 下载 |
+
+`clashctl update-deps` 只做离线文件替换和版本状态写入，不负责停止或启动内核。检测到当前安装仍在运行时，它会拒绝执行；需要先 `clashoff`，更新完成后再 `clashrestart`，如果要明确托管方式则执行 `clashrestart --mode <tmux|nohup|systemd>`。
 
 日常使用时，直接执行：
 
@@ -330,8 +335,10 @@ source "$HOME/clashctl/scripts/cmd/clashctl.sh"
 如果需要让运行中的内核也按新版脚本重新拉起：
 
 ```bash
-clashctl off && clashctl on
+clashrestart
 ```
+
+如果需要明确保持或切换托管方式，使用 `clashrestart --mode <tmux|nohup|systemd>`。
 
 ## 配置目录与 git
 

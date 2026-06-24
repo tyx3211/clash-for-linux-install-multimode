@@ -192,19 +192,19 @@ _clashctl_target_owner_spec() {
 }
 
 _clashctl_chown_sudo_user_path() {
-    local path=$1 owner_spec
+    local target_path=$1 owner_spec
 
     owner_spec=$(_clashctl_target_owner_spec 2>/dev/null) || return 0
-    [ -e "$path" ] || return 0
-    chown "$owner_spec" "$path"
+    [ -e "$target_path" ] || return 0
+    chown "$owner_spec" "$target_path"
 }
 
 _clashctl_chown_sudo_user_tree() {
-    local path=$1 owner_spec
+    local target_path=$1 owner_spec
 
     owner_spec=$(_clashctl_target_owner_spec 2>/dev/null) || return 0
-    [ -e "$path" ] || return 0
-    chown -R "$owner_spec" "$path"
+    [ -e "$target_path" ] || return 0
+    chown -R "$owner_spec" "$target_path"
 }
 
 _clashctl_chown_runtime_file() {
@@ -388,7 +388,7 @@ _get_local_ip() {
 }
 
 _format_http_url() {
-    local host=$1 port=$2 path=${3:-}
+    local host=$1 port=$2 url_path=${3:-}
 
     case "$host" in
     *:*)
@@ -401,7 +401,7 @@ _format_http_url() {
         esac
         ;;
     esac
-    printf 'http://%s:%s%s\n' "$host" "$port" "$path"
+    printf 'http://%s:%s%s\n' "$host" "$port" "$url_path"
 }
 
 function _detect_ext_addr() {
@@ -455,8 +455,8 @@ function _detect_ext_addr() {
 }
 
 _ext_api_url() {
-    local path=${1:-}
-    _format_http_url "${EXT_API_HOST:-${EXT_IP:-127.0.0.1}}" "$EXT_PORT" "$path"
+    local url_path=${1:-}
+    _format_http_url "${EXT_API_HOST:-${EXT_IP:-127.0.0.1}}" "$EXT_PORT" "$url_path"
 }
 
 _ensure_ext_addr_available() {
@@ -652,7 +652,7 @@ _download_raw_config() {
             --output-document "$dest" \
             "$url"
 }
-_download_convert_config() {
+_download_convert_config_impl() {
     local dest=$1
     local url=$2
     local flag
@@ -680,6 +680,10 @@ _download_convert_config() {
     flag=$?
     _stop_convert
     return $flag
+}
+
+_download_convert_config() {
+    _with_service_lock _download_convert_config_impl "$@"
 }
 
 _detect_subconverter_port() {

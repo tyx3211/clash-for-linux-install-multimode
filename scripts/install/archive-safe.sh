@@ -68,8 +68,10 @@ _zip_archive_is_safe() {
 _extract_tar_archive() {
     local archive=$1 dest=$2
 
-    _tar_archive_is_safe "$archive" ||
+    _tar_archive_is_safe "$archive" || {
         _error_quit "归档包含不安全路径或特殊文件，请删除后重试：$archive"
+        return 1
+    }
     tar -xf "$archive" -C "$dest"
 }
 

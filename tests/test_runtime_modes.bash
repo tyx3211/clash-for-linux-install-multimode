@@ -63,6 +63,15 @@ assert_file_not_contains "$FISH_SH" 'bash -c "\\. \\"\\$CLASHCTL_CMD_DIR' \
 assert_file_contains "$FISH_SH" '_clashctl_bash_call clashctl update-self \$argv' \
     "fish clashctl wrapper should pass update-self through to bash clashctl"
 
+assert_file_contains "$CLASHCTL_SH" 'update-deps' \
+    "clashctl should expose an explicit dependency update command"
+
+assert_file_contains "$CLASHCTL_SH" 'clashdeps "\$@"' \
+    "clashctl update-deps should dispatch to clashdeps with all arguments"
+
+assert_file_contains "$FISH_SH" '_clashctl_bash_call clashctl update-deps \$argv' \
+    "fish clashctl wrapper should pass update-deps through to bash clashctl"
+
 assert_file_not_contains "$PREFLIGHT_SH" 'placeholder_start#_clash_service_start' \
     "install rendering should not hard-wire a single service start function"
 

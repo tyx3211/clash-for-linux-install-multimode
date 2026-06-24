@@ -208,8 +208,10 @@ _current_kernel_pids() {
 
 _clash_tmux_kill_session() {
     local session=$1
-    local kernel_pids=()
-    mapfile -t kernel_pids < <(_clash_tmux_session_current_kernel_pids "$session" 2>/dev/null || true)
+    local kernel_pids=() pid
+    while IFS= read -r pid; do
+        [ -n "$pid" ] && kernel_pids+=("$pid")
+    done < <(_clash_tmux_session_current_kernel_pids "$session" 2>/dev/null || true)
     tmux kill-session -t "$session" 2>/dev/null || return 1
     _terminate_current_kernel_pids "${kernel_pids[@]}"
 }
@@ -748,7 +750,7 @@ function clashoff() {
 }
 
 _clashrestart_impl() {
-    local mode active active_status has_mode_arg=false arg
+    local mode active active_status has_mode_arg=false arg pid
     local current_pids=()
     for arg in "$@"; do
         case "$arg" in
@@ -780,7 +782,10 @@ EOF
         [ "$has_mode_arg" = false ] && mode=$active
         _clash_service_stop "$active" >/dev/null || return 1
     elif [ "$active_status" -eq 1 ]; then
-        mapfile -t current_pids < <(_current_kernel_pids)
+        current_pids=()
+        while IFS= read -r pid; do
+            [ -n "$pid" ] && current_pids+=("$pid")
+        done < <(_current_kernel_pids)
         if [ "${#current_pids[@]}" -gt 0 ]; then
             _okcat "检测到未托管的当前安装内核进程，先接管重启"
             _terminate_current_kernel_pids "${current_pids[@]}"

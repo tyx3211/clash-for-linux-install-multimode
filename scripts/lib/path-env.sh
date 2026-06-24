@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 
 _path_env_expand_path() {
-    local path=$1
+    local input_path=$1
 
-    case "$path" in
+    case "$input_path" in
     "~")
         printf '%s\n' "$HOME"
         ;;
     "~/"*)
-        printf '%s/%s\n' "$HOME" "${path#\~/}"
+        printf '%s/%s\n' "$HOME" "${input_path#\~/}"
         ;;
     '$HOME')
         printf '%s\n' "$HOME"
         ;;
     '$HOME/'*)
-        printf '%s/%s\n' "$HOME" "${path#\$HOME/}"
+        printf '%s/%s\n' "$HOME" "${input_path#\$HOME/}"
         ;;
     '${HOME}')
         printf '%s\n' "$HOME"
         ;;
     '${HOME}/'*)
-        printf '%s/%s\n' "$HOME" "${path#\$\{HOME\}/}"
+        printf '%s/%s\n' "$HOME" "${input_path#\$\{HOME\}/}"
         ;;
     *)
-        printf '%s\n' "$path"
+        printf '%s\n' "$input_path"
         ;;
     esac
 }

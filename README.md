@@ -26,7 +26,7 @@ bash install.sh --init nohup
 sudo bash install.sh --init systemd
 ```
 
-默认安装不使用 GitHub 下载代理。如果当前网络访问 GitHub releases 不稳定，可以安装时显式指定代理前缀，后续 `clashctl update-self` 也会复用这个设置：
+默认安装不使用 GitHub 下载代理。如果当前网络访问 GitHub releases 不稳定，可以安装时显式指定代理前缀，后续 `clashctl update-self` 和 `clashctl update-deps` 也会复用这个设置：
 
 ```bash
 bash install.sh --gh-proxy https://gh-proxy.org
@@ -110,6 +110,18 @@ clashrestart --mode systemd
 
 不要用 `sudo bash install.sh --init systemd` 刷新已有安装；`install.sh` 是初装入口，安装目录已存在时会拒绝继续。
 
+如果还要更新安装目录里的 mihomo、yq、subconverter 二进制，使用独立入口：
+
+```bash
+clashoff
+clashctl update-deps
+clashrestart
+```
+
+如果希望直接跟 GitHub latest release，再把中间一行换成 `clashctl update-deps --latest`。
+
+`update-deps` 不会停止或启动内核；如果当前安装正在运行，它会直接拒绝。这样可以避免“边替换二进制边重启服务”的复杂状态问题。
+
 `git clone` 得到的是安装源目录；默认安装目录 `~/clashctl` 不是项目 git 仓库，也不需要 `.git`。如果希望版本管理个人配置，推荐只在 `~/clashctl/config` 下建立 git 仓库。安装时可以使用 `bash install.sh --config-git` 或 `CLASHCTL_CONFIG_GIT=1 bash install.sh` 自动执行 `git init`。
 
 更多新手说明见 [快速上手教程](docs/quickstart.md)。运行托管模式、订阅和项目更新见 [当前版本使用指南](docs/usage-guide.md)。旧版升级见 [旧版迁移指南](docs/legacy-migration.md)。配置 Git 管理见 [配置版本管理](docs/config-versioning.md)。
@@ -189,7 +201,7 @@ cd clash-for-linux-install-multimode
 bash install.sh --gh-proxy https://gh-proxy.org
 ```
 
-这里的代理分两层：`git clone` 前面的 `https://gh-proxy.org/` 只影响源码拉取；`bash install.sh --gh-proxy ...` 会影响安装时依赖下载，并写入安装目录 `.env`，供后续 `clashctl update-self` 下载项目源码时复用。默认不传 `--gh-proxy` 时，不使用第三方 GitHub 代理。
+这里的代理分两层：`git clone` 前面的 `https://gh-proxy.org/` 只影响源码拉取；`bash install.sh --gh-proxy ...` 会影响安装时依赖下载，并写入安装目录 `.env`，供后续 `clashctl update-self` 下载项目源码和 `clashctl update-deps` 下载 GitHub release 依赖时复用。默认不传 `--gh-proxy` 时，不使用第三方 GitHub 代理。
 
 ### 默认托管模式
 
@@ -295,8 +307,9 @@ Commands:
   sub                   管理订阅
   tun                   管理 Tun 模式（仅 systemd）
   mixin                 查看或刷新 Mixin 配置
-  upgrade               升级内核
+  upgrade               请求 mihomo API 自升级内核
   update-self           无损更新项目脚本
+  update-deps           显式更新 mihomo/yq/subconverter 二进制
 
 Global Options:
   -h, --help            显示帮助信息
@@ -501,15 +514,17 @@ $ clashtun off
 
 ## 🔄 更新项目脚本
 
-`clashsub update` 更新订阅，`clashupgrade` 升级内核，二者都不会更新本项目的 shell 脚本。
+`clashsub update` 更新订阅，`clashctl update-self` 更新项目脚本，`clashctl update-deps` 更新安装目录里的 mihomo/yq/subconverter 二进制。`clashupgrade` 是请求本机 mihomo API 执行内核自升级，不更新 yq、subconverter，也不更新本项目 shell 脚本。
 
 GitHub 下载代理只作用在“本项目脚本更新”和“安装时 GitHub 依赖下载”这类 GitHub 下载链路上：
 
 | 命令 | `--gh-proxy` 语义 |
 | --- | --- |
-| `bash install.sh --gh-proxy <url>` | 持久写入安装目录 `.env`，安装依赖下载、空版本号 latest release 查询和后续 `update-self` 默认复用 |
+| `bash install.sh --gh-proxy <url>` | 持久写入安装目录 `.env`，安装依赖下载、空版本号 latest release 查询和后续 `update-self` / `update-deps` 默认复用 |
 | `clashctl update-self --gh-proxy <url>` | 只影响本次项目脚本更新，不改 `.env` |
 | `clashctl update-self --source <dir>` | 本地源码更新，不访问 GitHub，不需要代理 |
+| `clashctl update-deps --gh-proxy <url>` | 只影响本次 GitHub release 依赖下载，不改项目脚本 |
+| `clashctl update-deps --latest` | 显式解析 GitHub releases/latest；默认不追 latest |
 | `clashsub update` | 更新订阅 URL，不使用 GitHub 下载代理选项 |
 | `clashupgrade` | 请求本机 mihomo API 升级内核，不使用本项目的 GitHub 下载代理选项 |
 
@@ -574,8 +589,10 @@ source "$HOME/clashctl/scripts/cmd/clashctl.sh"
 如果希望运行中的内核也按新版脚本重新拉起，再执行：
 
 ```bash
-clashctl off && clashctl on
+clashrestart
 ```
+
+如果本次需要明确保持或切换托管方式，使用 `clashrestart --mode <tmux|nohup|systemd>`。
 
 ### 如果选择重装
 

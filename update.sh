@@ -297,6 +297,7 @@ _validate_source_tree() {
         scripts/lib/proxy.sh
         scripts/lib/runtime-config.sh
         scripts/lib/service-runtime.sh
+        scripts/lib/deps-update.sh
         scripts/lib/subscription.sh
         scripts/lib/tun.sh
         scripts/install/archive-safe.sh
@@ -710,4 +711,4 @@ if _target_has_systemd_service; then
     printf '👉 如需刷新已注册 systemd unit：sudo "%s/scripts/tools/refresh-systemd-service.sh"\n' "$target"
     printf '👉 刷新后让新 unit 生效：clashrestart --mode systemd\n'
 fi
-printf '👉 如需用新脚本重启内核：clashctl off && clashctl on\n'
+printf '👉 如需用新脚本重启内核：clashrestart，或 clashrestart --mode <tmux|nohup|systemd>\n'

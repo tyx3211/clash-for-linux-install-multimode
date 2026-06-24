@@ -4,7 +4,7 @@ CLASH_BASE_DIR=${CLASH_BASE_DIR:-}
 CLASH_RESOURCES_DIR=${CLASH_RESOURCES_DIR:-"${CLASH_BASE_DIR}/resources"}
 KERNEL_NAME=${KERNEL_NAME:-mihomo}
 
-_PREFLIGHT_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+_PREFLIGHT_SCRIPT_DIR=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE:-${(%):-%N}}")")" && pwd -P)
 . "$_PREFLIGHT_SCRIPT_DIR/lib/install-state.sh"
 . "$_PREFLIGHT_SCRIPT_DIR/install/archive-safe.sh"
 . "$_PREFLIGHT_SCRIPT_DIR/install/service-render.sh"
@@ -143,26 +143,26 @@ _mark_install_recoverable() {
 }
 
 _cleanup_incomplete_install() {
-    local status=$?
+    local exit_status=$?
 
-    [ "$CLASH_INSTALL_COMPLETE" = true ] && return "$status"
-    [ -n "$CLASH_INSTALL_CREATED_DIR" ] || return "$status"
+    [ "$CLASH_INSTALL_COMPLETE" = true ] && return "$exit_status"
+    [ -n "$CLASH_INSTALL_CREATED_DIR" ] || return "$exit_status"
 
     case "$CLASH_INSTALL_CREATED_DIR" in
     "" | "/" | "$HOME" | "$HOME/" | . | .. | ./* | ../*)
-        return "$status"
+        return "$exit_status"
         ;;
     esac
     case "$CLASH_INSTALL_CREATED_DIR" in
     /*)
         ;;
     *)
-        return "$status"
+        return "$exit_status"
         ;;
     esac
     case "$CLASH_INSTALL_CREATED_DIR" in
     *[!A-Za-z0-9_./-]* | */../* | */.. | */./* | */.)
-        return "$status"
+        return "$exit_status"
         ;;
     esac
 
@@ -175,7 +175,7 @@ _cleanup_incomplete_install() {
         _revoke_rc >/dev/null 2>&1 || true
     fi
     /usr/bin/rm -rf "$CLASH_INSTALL_CREATED_DIR" 2>/dev/null || true
-    return "$status"
+    return "$exit_status"
 }
 
 _valid_required() {
@@ -383,11 +383,15 @@ _prepare_zip() {
     BIN_KERNEL="${BIN_BASE_DIR}/$KERNEL_NAME"
     _unzip_zip
 }
+_first_zip_match() {
+    find "$ZIP_BASE_DIR" -maxdepth 1 \( -type f -o -type l \) -name "$1" -print -quit
+}
+
 _load_zip() {
-    ZIP_CLASH=$(echo "${ZIP_BASE_DIR}"/clash*)
-    ZIP_MIHOMO=$(echo "${ZIP_BASE_DIR}"/mihomo*)
-    ZIP_YQ=$(echo "${ZIP_BASE_DIR}"/yq*)
-    ZIP_SUBCONVERTER=$(echo "${ZIP_BASE_DIR}"/subconverter*)
+    ZIP_CLASH=$(_first_zip_match 'clash*')
+    ZIP_MIHOMO=$(_first_zip_match 'mihomo*')
+    ZIP_YQ=$(_first_zip_match 'yq*')
+    ZIP_SUBCONVERTER=$(_first_zip_match 'subconverter*')
 }
 _fetch_latest_tag() {
     local repo=$1 body tag url
@@ -410,15 +414,50 @@ _fetch_latest_tag() {
     )
     [ -n "$tag" ] && printf '%s\n' "$tag"
 }
+
+_version_var_value() {
+    case "$1" in
+    VERSION_MIHOMO)
+        printf '%s\n' "${VERSION_MIHOMO:-}"
+        ;;
+    VERSION_YQ)
+        printf '%s\n' "${VERSION_YQ:-}"
+        ;;
+    VERSION_SUBCONVERTER)
+        printf '%s\n' "${VERSION_SUBCONVERTER:-}"
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+_set_version_var() {
+    case "$1" in
+    VERSION_MIHOMO)
+        VERSION_MIHOMO=$2
+        ;;
+    VERSION_YQ)
+        VERSION_YQ=$2
+        ;;
+    VERSION_SUBCONVERTER)
+        VERSION_SUBCONVERTER=$2
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
 _resolve_version() {
     local varname=$1 repo=$2 tag
-    [ -n "${!varname:-}" ] && return 0
+    [ -n "$(_version_var_value "$varname")" ] && return 0
 
     tag=$(_fetch_latest_tag "$repo") || {
         _error_quit "${repo} 版本获取失败，请在 .env 中手动指定 $varname"
         return 1
     }
-    printf -v "$varname" '%s' "$tag"
+    _set_version_var "$varname" "$tag" || return 1
     _okcat '🏷️ ' "${repo} -> $tag"
 }
 _download_zip() {

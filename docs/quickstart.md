@@ -41,7 +41,7 @@ sudo bash install.sh --init systemd
 bash install.sh --gh-proxy https://gh-proxy.org
 ```
 
-这个设置会写入安装目录 `.env`，后续 `clashctl update-self` 也会复用。它只影响 GitHub 下载 URL，不会开启当前终端代理变量。
+这个设置会写入安装目录 `.env`，后续 `clashctl update-self` 和 `clashctl update-deps` 也会复用。它只影响 GitHub 下载 URL，不会开启当前终端代理变量。
 
 如果希望从第一天开始就把个人配置放进独立 git 仓库，可以安装时加上：
 
@@ -262,11 +262,12 @@ clashsub update 1 --convert
 
 ## 直接更新项目脚本
 
-项目更新、订阅更新、内核升级是三件事：
+项目更新、依赖更新、订阅更新、内核自升级需要分开理解：
 
 - `clashctl update-self`：更新本项目脚本和文档。
+- `clashctl update-deps`：显式更新安装目录里的 mihomo、yq、subconverter 二进制。
 - `clashsub update`：更新订阅。
-- `clashupgrade`：升级 mihomo / clash 内核。
+- `clashupgrade`：请求本机 mihomo API 执行内核自升级；不更新 yq、subconverter，也不更新项目脚本。
 
 旧 `nosudo-tmux` 分支、旧 `master`、[`legacy-nosudo-tmux`](https://github.com/tyx3211/clash-for-linux-install-multimode/tree/legacy-nosudo-tmux) 这个 tag 及以前版本，或者还没执行过 `migrate.sh` 的中间版安装，第一次升级到当前 `main` 前建议先迁移，不要先卸载旧安装目录。完整步骤见 [旧版迁移指南](legacy-migration.md)。
 
@@ -284,11 +285,31 @@ clashctl update-self
 source "$HOME/clashctl/scripts/cmd/clashctl.sh"
 ```
 
+如果还要把二进制依赖更新到本项目当前固定的稳定版本：
+
+```bash
+clashoff
+clashctl update-deps
+clashrestart
+```
+
+如果希望直接跟进 GitHub latest release：
+
+```bash
+clashoff
+clashctl update-deps --latest
+clashrestart
+```
+
+`update-deps` 只做离线文件替换，不会自动停止或启动内核。检测到当前安装仍在运行时，它会拒绝执行；先手动 `clashoff` 可以让语义更清楚。
+
 如需让运行中的内核也按新版脚本重新拉起：
 
 ```bash
-clashctl off && clashctl on
+clashrestart
 ```
+
+如果需要明确保持或切换托管方式，使用 `clashrestart --mode <tmux|nohup|systemd>`。
 
 默认安装目录不是 git 仓库，也不需要 `.git`。如果旧安装目录里已经有 `.git`，通常是历史安装复制遗留；确认没有自定义用途后，可以手工删除。配置版本管理推荐放在 `~/clashctl/config`。
 
@@ -305,7 +326,7 @@ clashctl update-self --gh-proxy https://gh-proxy.org
 clashctl update-self --no-gh-proxy
 ```
 
-这个代理选项只影响项目脚本更新下载，不影响 `clashsub update` 订阅更新，也不影响 `clashupgrade` 内核升级。
+这个代理选项只影响项目脚本更新下载，不影响 `clashsub update` 订阅更新，也不影响 `clashupgrade` 内核自升级。依赖二进制下载请使用 `clashctl update-deps --gh-proxy <url>`。
 
 使用本地源码目录刷新安装目录：
 

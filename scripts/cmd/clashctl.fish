@@ -6,7 +6,7 @@ function _clashctl_bash_call
     set -l fn $argv[1]
     set -e argv[1]
     switch $fn
-        case clashui clashstatus clashhealth clashdoctor clashsecret clashmixin clashsub clashtun clashlog clashupgrade clashhelp clashctl clashon clashoff clashrestart clashproxy
+        case clashui clashstatus clashhealth clashdoctor clashsecret clashmixin clashsub clashtun clashlog clashupgrade clashdeps clashhelp clashctl clashon clashoff clashrestart clashproxy
         case '*'
             echo "unknown clashctl fish wrapper function: $fn" >&2
             return 1
@@ -17,7 +17,7 @@ function _clashctl_bash_call
         fn=$2
         shift 2
         case "$fn" in
-        clashui|clashstatus|clashhealth|clashdoctor|clashsecret|clashmixin|clashsub|clashtun|clashlog|clashupgrade|clashhelp|clashctl|clashon|clashoff|clashrestart|clashproxy)
+        clashui|clashstatus|clashhealth|clashdoctor|clashsecret|clashmixin|clashsub|clashtun|clashlog|clashupgrade|clashdeps|clashhelp|clashctl|clashon|clashoff|clashrestart|clashproxy)
             ;;
         *)
             exit 64
@@ -107,6 +107,10 @@ function clashupgrade
     _clashctl_bash_call clashupgrade $argv
 end
 
+function clashdeps
+    _clashctl_bash_call clashdeps $argv
+end
+
 function clashhelp
     _clashctl_bash_call clashhelp $argv
 end
@@ -134,6 +138,8 @@ function clashctl
             clashdoctor $argv
         case update-self
             _clashctl_bash_call clashctl update-self $argv
+        case update-deps
+            _clashctl_bash_call clashctl update-deps $argv
         case '*'
             set -l fn clash"$suffix"
             if functions -q $fn
